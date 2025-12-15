@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import type { Depot, Vehicle, Customer } from "@/lib/types"
 import { ORSClient } from "@/lib/ors/client"
 import { calculateTollCosts } from "@/lib/toll-costs"
+import { clarkeWrightOptimize } from "@/lib/vrp/clarke-wright"
+import { validateRoute } from "@/lib/vrp/constraint-validator"
 
 const ORS_API_KEY = process.env.ORS_API_KEY
 const ORS_MAX_VEHICLES = 3 // ORS ücretsiz plan limiti
@@ -567,11 +569,102 @@ export async function POST(request: Request) {
 
     // ORS API anahtarı varsa ORS kullan, yoksa yerel optimizer
     if (ORS_API_KEY) {
-      const result = await optimizeWithORS(depots, vehicles, customers, normalizedOptions)
-      return NextResponse.json(result)
+      // 1. ORS ile optimize et (hızlı, gerçek yol verileri)
+      const orsResult = await optimizeWithORS(depots, vehicles, customers, normalizedOptions)
+
+      // 2. ORS sonuçlarını kısıt kontrolünden geçir
+      const validatedRoutes = []
+      const invalidRoutes = []
+
+      for (const route of orsResult.routes) {
+        const vehicle = vehicles.find((v) => v.id === route.vehicleId)
+        const depot = depots.find((d) => d.id === vehicle?.depot_id) || depots[0]
+
+        const validation = validateRoute(route, vehicle!, depot, customers)
+
+        if (validation.isValid) {
+          validatedRoutes.push({
+            ...route,
+            validationStatus: "valid",
+          })
+        } else {
+          invalidRoutes.push({
+            ...route,
+            validationStatus: "invalid",
+            violations: validation.violations,
+          })
+        }
+      }
+
+      // 3. İhlalli rotalar varsa Clarke-Wright ile yeniden optimize et
+      if (invalidRoutes.length > 0) {
+        console.log(
+          `[v0] ${invalidRoutes.length} rota kısıt ihlali içeriyor, Clarke-Wright ile yeniden optimize ediliyor...`,
+        )
+
+        // İhlalli rotalardaki müşterileri topla
+        const invalidCustomerIds = new Set<string>()
+        for (const route of invalidRoutes) {
+          for (const stop of route.stops) {
+            invalidCustomerIds.add(stop.customerId)
+          }
+        }
+
+        const invalidCustomers = customers.filter((c) => invalidCustomerIds.has(c.id))
+
+        // Clarke-Wright ile yeniden optimize et
+        const cwResult = clarkeWrightOptimize(depots, vehicles, invalidCustomers, normalizedOptions)
+
+        // Clarke-Wright sonuçlarını da doğrula
+        const cwValidatedRoutes = []
+        for (const route of cwResult.routes) {
+          const vehicle = vehicles.find((v) => v.id === route.vehicleId)
+          const depot = depots.find((d) => d.id === vehicle?.depot_id) || depots[0]
+
+          const validation = validateRoute(route, vehicle!, depot, customers)
+
+          cwValidatedRoutes.push({
+            ...route,
+            validationStatus: validation.isValid ? "valid" : "partial",
+            violations: validation.violations,
+            provider: "clarke-wright",
+          })
+        }
+
+        // Sonuçları birleştir
+        return NextResponse.json({
+          ...orsResult,
+          routes: [...validatedRoutes.map((r) => ({ ...r, provider: "ors" })), ...cwValidatedRoutes],
+          summary: {
+            ...orsResult.summary,
+            totalRoutes: validatedRoutes.length + cwValidatedRoutes.length,
+            validRoutes:
+              validatedRoutes.length + cwValidatedRoutes.filter((r) => r.validationStatus === "valid").length,
+            constraintViolations: cwValidatedRoutes.filter((r) => r.validationStatus === "partial").length,
+          },
+          provider: "hybrid",
+          computationTime: Date.now() - Date.parse(orsResult.computationTime),
+        })
+      }
+
+      // Tüm rotalar geçerliyse ORS sonucunu döndür
+      return NextResponse.json({
+        ...orsResult,
+        routes: validatedRoutes.map((r) => ({ ...r, provider: "ors" })),
+        provider: "ors",
+        summary: {
+          ...orsResult.summary,
+          validRoutes: validatedRoutes.length,
+          constraintViolations: 0,
+        },
+      })
     } else {
-      const result = localOptimize(depots, vehicles, customers, normalizedOptions)
-      return NextResponse.json(result)
+      // API key yoksa Clarke-Wright kullan
+      const result = clarkeWrightOptimize(depots, vehicles, customers, normalizedOptions)
+      return NextResponse.json({
+        ...result,
+        provider: "clarke-wright",
+      })
     }
   } catch (error: any) {
     console.error("Optimizasyon hatası:", error)

@@ -158,7 +158,10 @@ export function VehiclesTable() {
               <TableHead>Plaka</TableHead>
               <TableHead>Tip</TableHead>
               <TableHead>Depo</TableHead>
-              <TableHead>Kapasite</TableHead>
+              <TableHead>Kapasite (Palet)</TableHead>
+              <TableHead>Ağırlık (kg)</TableHead>
+              <TableHead>Hacim (m³)</TableHead>
+              <TableHead>Sürücü Saatleri</TableHead>
               <TableHead>Maliyet/km</TableHead>
               <TableHead>
                 <div className="flex items-center gap-1">
@@ -189,11 +192,41 @@ export function VehiclesTable() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <div className="text-sm">
-                    <span className="font-medium">{vehicle.capacity_pallet}</span> palet
-                    <span className="text-muted-foreground ml-2">
-                      ({((vehicle.capacity_kg || 0) / 1000).toFixed(0)}t)
-                    </span>
+                  <span className="font-medium">{vehicle.capacity_pallet}</span> palet
+                </TableCell>
+                <TableCell>
+                  <div className="text-xs">
+                    <span className="font-medium">{((vehicle.capacity_kg || 0) / 1000).toFixed(1)}</span>
+                    <span className="text-muted-foreground"> ton</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-xs">
+                    {vehicle.capacity_m3 ? (
+                      <>
+                        <span className="font-medium">{vehicle.capacity_m3}</span>
+                        <span className="text-muted-foreground"> m³</span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-xs">
+                    {vehicle.driver_max_work_hours ? (
+                      <div className="space-y-1">
+                        <div>
+                          <span className="font-medium">{vehicle.driver_max_work_hours}</span>
+                          <span className="text-muted-foreground"> saat</span>
+                        </div>
+                        {vehicle.driver_break_duration && (
+                          <div className="text-muted-foreground">Mola: {vehicle.driver_break_duration} dk</div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell>{vehicle.cost_per_km?.toFixed(2) || "0.00"} TL</TableCell>

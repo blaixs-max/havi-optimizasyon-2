@@ -268,3 +268,161 @@ export function clarkeWrightSavings(
 
   return results
 }
+
+export function clarkeWrightOptimize(
+  depots: any[],
+  vehicles: any[],
+  customers: any[],
+  options: {
+    fuelPricePerLiter: number
+    maxRouteDistanceKm?: number
+    maxRouteTimeMin?: number
+    vehicleCapacityUtilization?: number
+  },
+) {
+  const startTime = Date.now()
+
+  // Type dönüşümü
+  const depot: DepotPoint = {
+    id: depots[0].id,
+    lat: depots[0].lat,
+    lng: depots[0].lng,
+    name: depots[0].name,
+  }
+
+  const points: Point[] = customers.map((c) => ({
+    id: c.id,
+    lat: c.lat,
+    lng: c.lng,
+    demand: c.demand_pallets || c.demand_pallet || 1,
+    demandKg: c.demand_kg || 0,
+    demandM3: c.demand_m3 || 0,
+    serviceDuration: c.service_duration || 15,
+    timeWindowStart: c.time_window_start,
+    timeWindowEnd: c.time_window_end,
+    requiredVehicleTypes: c.required_vehicle_types || [],
+  }))
+
+  const vehicleConfigs: VehicleConfig[] = vehicles.map((v) => ({
+    id: v.id,
+    capacityPallets: v.capacity_pallet || v.capacity_pallets || 12,
+    capacityKg: v.capacity_kg || 5000,
+    capacityM3: v.capacity_m3 || 25,
+    fuelConsumptionPer100km: v.fuel_consumption_per_100km || 25,
+    costPerKm: v.cost_per_km || 2,
+    fixedDailyCost: v.fixed_daily_cost || 500,
+    vehicleType: v.vehicle_type || "truck",
+    driverMaxWorkHours: v.driver_max_work_hours || 11,
+  }))
+
+  const params: OptimizationParams = {
+    fuelPricePerLiter: options.fuelPricePerLiter,
+    maxRouteDistance: options.maxRouteDistanceKm,
+    maxRouteTime: options.maxRouteTimeMin,
+  }
+
+  // Mesafe matrisini oluştur (Haversine ile)
+  const distanceMatrix: DistanceMatrix = {
+    distances: {},
+    durations: {},
+  }
+
+  const allPoints = [depot, ...points]
+  for (const p1 of allPoints) {
+    for (const p2 of allPoints) {
+      if (p1.id === p2.id) continue
+      const key = `${p1.id}-${p2.id}`
+      const R = 6371
+      const dLat = ((p2.lat - p1.lat) * Math.PI) / 180
+      const dLng = ((p2.lng - p1.lng) * Math.PI) / 180
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((p1.lat * Math.PI) / 180) *
+          Math.cos((p2.lat * Math.PI) / 180) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2)
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+      const distance = R * c
+      const duration = (distance / 50) * 60 // 50 km/h ortalama hız
+
+      distanceMatrix.distances[key] = distance
+      distanceMatrix.durations[key] = duration
+    }
+  }
+
+  const cwResults = clarkeWrightSavings(depot, points, vehicleConfigs, distanceMatrix, params)
+
+  // API format'ına dönüştür
+  const routes = cwResults.map((r) => {
+    const vehicle = vehicles.find((v) => v.id === r.vehicleId)
+    const stops = r.stops.map((stopId, index) => {
+      const customer = customers.find((c) => c.id === stopId)
+      return {
+        customerId: stopId,
+        customerName: customer?.name || "Bilinmeyen",
+        address: customer?.address || "",
+        lat: customer?.lat || 0,
+        lng: customer?.lng || 0,
+        stopOrder: index + 1,
+        arrivalTime: 0,
+        serviceTime: customer?.service_duration || 15,
+        distanceFromPrev: 0,
+        demand: customer?.demand_pallets || customer?.demand_pallet || 1,
+        cumulativeLoad: 0,
+      }
+    })
+
+    return {
+      vehicleId: r.vehicleId,
+      vehiclePlate: vehicle?.plate || "Bilinmeyen",
+      vehicleType: vehicle?.vehicle_type || "truck",
+      depotId: r.depotId,
+      depotName: depots[0].name,
+      stops,
+      totalDistance: r.totalDistance,
+      totalDuration: r.totalDuration,
+      totalCost: r.totalCost,
+      fuelCost: r.fuelCost,
+      fixedCost: r.fixedCost,
+      distanceCost: r.distanceCost,
+      tollCost: 0,
+      tollCrossings: [],
+      highwayUsage: [],
+      totalLoad: r.totalLoad,
+      capacityUtilization: Math.round((r.totalLoad / (vehicle?.capacity_pallet || 12)) * 100),
+      geometry: null,
+    }
+  })
+
+  const assignedCustomerIds = new Set(cwResults.flatMap((r) => r.stops))
+  const unassigned = customers.filter((c) => !assignedCustomerIds.has(c.id)).map((c) => c.id)
+
+  const computationTime = Date.now() - startTime
+  const totalDistance = routes.reduce((sum, r) => sum + r.totalDistance, 0)
+  const totalDuration = routes.reduce((sum, r) => sum + r.totalDuration, 0)
+  const totalCost = routes.reduce((sum, r) => sum + r.totalCost, 0)
+  const totalFuelCost = routes.reduce((sum, r) => sum + r.fuelCost, 0)
+  const totalFixedCost = routes.reduce((sum, r) => sum + r.fixedCost, 0)
+  const totalDistanceCost = routes.reduce((sum, r) => sum + r.distanceCost, 0)
+
+  return {
+    success: true,
+    provider: "clarke-wright",
+    summary: {
+      totalRoutes: routes.length,
+      totalDistance: Math.round(totalDistance * 100) / 100,
+      totalDuration: Math.round(totalDuration),
+      totalCost: Math.round(totalCost * 100) / 100,
+      fuelCost: Math.round(totalFuelCost * 100) / 100,
+      fixedCost: Math.round(totalFixedCost * 100) / 100,
+      distanceCost: Math.round(totalDistanceCost * 100) / 100,
+      tollCost: 0,
+      unassignedCount: unassigned.length,
+      computationTimeMs: computationTime,
+      avgCapacityUtilization:
+        routes.length > 0 ? routes.reduce((sum, r) => sum + r.capacityUtilization, 0) / routes.length : 0,
+    },
+    routes,
+    unassigned,
+  }
+}

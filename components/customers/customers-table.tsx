@@ -211,7 +211,11 @@ export function CustomersTable() {
               <TableHead>Adres</TableHead>
               <TableHead>Şehir</TableHead>
               <TableHead>Koordinat</TableHead>
-              <TableHead>Talep</TableHead>
+              <TableHead>Zaman Penceresi</TableHead>
+              <TableHead>Servis Süresi</TableHead>
+              <TableHead>Talep (Palet)</TableHead>
+              <TableHead>Hacim (m³)</TableHead>
+              <TableHead>Araç Tipi</TableHead>
               <TableHead>Öncelik</TableHead>
               <TableHead>Depo</TableHead>
               <TableHead className="w-12"></TableHead>
@@ -239,8 +243,51 @@ export function CustomersTable() {
                     )}
                   </TableCell>
                   <TableCell>
+                    <div className="text-xs">
+                      {customer.time_window_start && customer.time_window_end ? (
+                        <span className="font-mono text-muted-foreground">
+                          {customer.time_window_start} - {customer.time_window_end}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Yok</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-xs">
+                      {customer.service_duration ? (
+                        <span className="font-medium">{customer.service_duration} dk</span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <span className="font-medium">{customer.demand_pallet || customer.demand_pallets}</span>
-                    <span className="text-muted-foreground text-sm"> palet</span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-xs">
+                      {customer.demand_m3 ? (
+                        <span className="font-medium">{customer.demand_m3} m³</span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-xs">
+                      {customer.required_vehicle_types && customer.required_vehicle_types.length > 0 ? (
+                        <div className="flex gap-1 flex-wrap">
+                          {customer.required_vehicle_types.map((type) => (
+                            <Badge key={type} variant="outline" className="text-xs">
+                              {type}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">Hepsi</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge className={`${PRIORITY_LABELS[customer.priority]?.color || "bg-gray-500"} text-white`}>
@@ -374,6 +421,34 @@ export function CustomersTable() {
                     Koordinat Eksik
                   </div>
                 )}
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="font-medium">
+                    {customer.time_window_start && customer.time_window_end
+                      ? `${customer.time_window_start} - ${customer.time_window_end}`
+                      : "Yok"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="font-medium">
+                    {customer.service_duration ? `${customer.service_duration} dk` : "-"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="font-medium">{customer.demand_m3 ? `${customer.demand_m3} m³` : "-"}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="font-medium">
+                    {customer.required_vehicle_types && customer.required_vehicle_types.length > 0
+                      ? customer.required_vehicle_types.join(", ")
+                      : "Hepsi"}
+                  </span>
+                </div>
               </div>
             </Card>
           )
