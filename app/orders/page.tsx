@@ -68,7 +68,6 @@ export default function OrdersPage() {
   const [editingOrder, setEditingOrder] = useState<MockOrder | null>(null)
 
   useEffect(() => {
-    // Simulate loading
     setTimeout(() => {
       setOrders(mockOrders)
       setLoading(false)
@@ -118,19 +117,19 @@ export default function OrdersPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+        {/* Header - Mobil responsive */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Siparişler</h1>
-            <p className="text-sm text-slate-500 mt-1">Teslimat siparişlerini yönetin ve takip edin</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Siparişler</h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">Teslimat siparişlerini yönetin</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="hidden sm:flex bg-transparent">
               <Upload className="h-4 w-4 mr-2" />
               İçe Aktar
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="hidden sm:flex bg-transparent">
               <Download className="h-4 w-4 mr-2" />
               Dışa Aktar
             </Button>
@@ -142,64 +141,64 @@ export default function OrdersPage() {
                 setDialogOpen(true)
               }}
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Yeni Sipariş
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Yeni Sipariş</span>
             </Button>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-slate-100 rounded-lg">
-                <Package className="h-5 w-5 text-slate-600" />
+        {/* Stats Cards - Mobilde 2x2 grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-slate-100 rounded-lg shrink-0">
+                <Package className="h-4 w-4 sm:h-5 sm:w-5 text-slate-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
-                <p className="text-sm text-slate-500">Toplam Sipariş</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <Clock className="h-5 w-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{stats.pending}</p>
-                <p className="text-sm text-slate-500">Bekleyen</p>
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-slate-900">{stats.total}</p>
+                <p className="text-xs sm:text-sm text-slate-500 truncate">Toplam</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Truck className="h-5 w-5 text-purple-600" />
+          <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-amber-100 rounded-lg shrink-0">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{stats.inTransit}</p>
-                <p className="text-sm text-slate-500">Yolda</p>
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-slate-900">{stats.pending}</p>
+                <p className="text-xs sm:text-sm text-slate-500 truncate">Bekleyen</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-100 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-emerald-600" />
+          <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg shrink-0">
+                <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{stats.delivered}</p>
-                <p className="text-sm text-slate-500">Teslim Edildi</p>
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-slate-900">{stats.inTransit}</p>
+                <p className="text-xs sm:text-sm text-slate-500 truncate">Yolda</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-emerald-100 rounded-lg shrink-0">
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-slate-900">{stats.delivered}</p>
+                <p className="text-xs sm:text-sm text-slate-500 truncate">Teslim</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-md">
+        {/* Filters - Mobilde stack layout */}
+        <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Sipariş, müşteri veya adres ara..."
@@ -208,34 +207,36 @@ export default function OrdersPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Durum" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tüm Durumlar</SelectItem>
-                <SelectItem value="pending">Bekliyor</SelectItem>
-                <SelectItem value="assigned">Atandı</SelectItem>
-                <SelectItem value="in_transit">Yolda</SelectItem>
-                <SelectItem value="delivered">Teslim Edildi</SelectItem>
-                <SelectItem value="cancelled">İptal</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={cityFilter} onValueChange={setCityFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Şehir" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tüm Şehirler</SelectItem>
-                {cities.map((city) => (
-                  <SelectItem key={city} value={city}>
-                    {city}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-32">
+                  <SelectValue placeholder="Durum" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tüm Durumlar</SelectItem>
+                  <SelectItem value="pending">Bekliyor</SelectItem>
+                  <SelectItem value="assigned">Atandı</SelectItem>
+                  <SelectItem value="in_transit">Yolda</SelectItem>
+                  <SelectItem value="delivered">Teslim Edildi</SelectItem>
+                  <SelectItem value="cancelled">İptal</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={cityFilter} onValueChange={setCityFilter}>
+                <SelectTrigger className="w-full sm:w-32">
+                  <SelectValue placeholder="Şehir" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tüm Şehirler</SelectItem>
+                  {cities.map((city) => (
+                    <SelectItem key={city} value={city}>
+                      {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {selectedOrders.length > 0 && (
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="flex items-center gap-2">
                 <span className="text-sm text-slate-500">{selectedOrders.length} seçili</span>
                 <Button
                   variant="outline"
@@ -251,77 +252,133 @@ export default function OrdersPage() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Table - Mobilde kart gorunumu */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead className="w-12">
-                    <input
-                      type="checkbox"
-                      className="rounded border-slate-300"
-                      checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
-                      onChange={toggleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead>Sipariş No</TableHead>
-                  <TableHead>Müşteri</TableHead>
-                  <TableHead>Şehir</TableHead>
-                  <TableHead>Talep</TableHead>
-                  <TableHead>Öncelik</TableHead>
-                  <TableHead>Durum</TableHead>
-                  <TableHead>Teslimat Tarihi</TableHead>
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOrders.map((order) => {
-                  const StatusIcon = statusConfig[order.status].icon
-                  return (
-                    <TableRow key={order.id} className="hover:bg-slate-50">
-                      <TableCell>
+            <>
+              {/* Desktop Table */}
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50">
+                      <TableHead className="w-12">
                         <input
                           type="checkbox"
                           className="rounded border-slate-300"
-                          checked={selectedOrders.includes(order.id)}
-                          onChange={() => toggleSelectOrder(order.id)}
+                          checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
+                          onChange={toggleSelectAll}
                         />
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{order.id}</TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium text-slate-900">{order.customer_name}</p>
-                          <p className="text-sm text-slate-500 truncate max-w-[200px]">{order.customer_address}</p>
+                      </TableHead>
+                      <TableHead>Sipariş No</TableHead>
+                      <TableHead>Müşteri</TableHead>
+                      <TableHead>Şehir</TableHead>
+                      <TableHead>Talep</TableHead>
+                      <TableHead>Öncelik</TableHead>
+                      <TableHead>Durum</TableHead>
+                      <TableHead>Teslimat Tarihi</TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredOrders.map((order) => {
+                      const StatusIcon = statusConfig[order.status].icon
+                      return (
+                        <TableRow key={order.id} className="hover:bg-slate-50">
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300"
+                              checked={selectedOrders.includes(order.id)}
+                              onChange={() => toggleSelectOrder(order.id)}
+                            />
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">{order.id}</TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium text-slate-900">{order.customer_name}</p>
+                              <p className="text-sm text-slate-500 truncate max-w-[200px]">{order.customer_address}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>{order.customer_city}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              <p>{order.demand_pallet} palet</p>
+                              <p className="text-slate-500">{order.demand_kg.toLocaleString()} kg</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={priorityConfig[order.priority].color}>
+                              {priorityConfig[order.priority].label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={statusConfig[order.status].color}>
+                              <StatusIcon className="h-3 w-3 mr-1" />
+                              {statusConfig[order.status].label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{order.delivery_date}</TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Görüntüle
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingOrder(order)
+                                    setDialogOpen(true)
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Düzenle
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteOrder(order.id)}>
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Sil
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                    {filteredOrders.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-12">
+                          <Package className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                          <p className="text-slate-500">Sipariş bulunamadı</p>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="sm:hidden divide-y divide-slate-200">
+                {filteredOrders.map((order) => {
+                  const StatusIcon = statusConfig[order.status].icon
+                  return (
+                    <div key={order.id} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-slate-900 truncate">{order.customer_name}</p>
+                          <p className="text-xs text-slate-500 truncate">{order.customer_address}</p>
                         </div>
-                      </TableCell>
-                      <TableCell>{order.customer_city}</TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <p>{order.demand_pallet} palet</p>
-                          <p className="text-slate-500">{order.demand_kg.toLocaleString()} kg</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={priorityConfig[order.priority].color}>
-                          {priorityConfig[order.priority].label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={statusConfig[order.status].color}>
-                          <StatusIcon className="h-3 w-3 mr-1" />
-                          {statusConfig[order.status].label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{order.delivery_date}</TableCell>
-                      <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -346,26 +403,40 @@ export default function OrdersPage() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge className={statusConfig[order.status].color}>
+                          <StatusIcon className="h-3 w-3 mr-1" />
+                          {statusConfig[order.status].label}
+                        </Badge>
+                        <Badge className={priorityConfig[order.priority].color}>
+                          {priorityConfig[order.priority].label}
+                        </Badge>
+                        <span className="text-xs text-slate-500">{order.customer_city}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-slate-600">
+                        <span>
+                          {order.demand_pallet} palet / {order.demand_kg.toLocaleString()} kg
+                        </span>
+                        <span>{order.delivery_date}</span>
+                      </div>
+                    </div>
                   )
                 })}
                 {filteredOrders.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12">
-                      <Package className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-500">Sipariş bulunamadı</p>
-                    </TableCell>
-                  </TableRow>
+                  <div className="text-center py-12">
+                    <Package className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500">Sipariş bulunamadı</p>
+                  </div>
                 )}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </div>
 
         {/* Pagination */}
         <div className="flex items-center justify-between">
-          <p className="text-sm text-slate-500">Toplam {filteredOrders.length} sipariş gösteriliyor</p>
+          <p className="text-xs sm:text-sm text-slate-500">{filteredOrders.length} sipariş</p>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled>
               Önceki
@@ -381,10 +452,10 @@ export default function OrdersPage() {
 
         {/* Order Form Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingOrder ? "Siparişi Düzenle" : "Yeni Sipariş"}</DialogTitle>
-              <DialogDescription>Sipariş bilgilerini girin veya düzenleyin</DialogDescription>
+              <DialogDescription>Sipariş bilgilerini girin</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">

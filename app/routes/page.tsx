@@ -55,7 +55,6 @@ export default function RoutesPage() {
     const result = getOptimizationResult()
 
     if (result && result.routes && result.routes.length > 0) {
-      // Optimize sonuclari mevcut
       const mappedRoutes: RouteData[] = result.routes.map((route: any, index: number) => ({
         id: route.id || `route-${index}`,
         vehicle_id: route.vehicle_id || `vehicle-${index}`,
@@ -79,7 +78,6 @@ export default function RoutesPage() {
         })),
       }))
 
-      // Depo filtreleme
       const filteredRoutes =
         selectedDepot === "all"
           ? mappedRoutes
@@ -106,19 +104,19 @@ export default function RoutesPage() {
   return (
     <DashboardLayout>
       <div className="flex flex-col min-h-full">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-white sticky top-0 z-10">
+        {/* Header - Mobil responsive */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border-b border-slate-200 bg-white sticky top-0 z-10 gap-3">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Rotalar</h1>
-            <p className="text-sm text-slate-500">
-              {lastOptimization ? `Son optimizasyon: ${lastOptimization}` : "Henuz optimizasyon yapilmadi"}
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900">Rotalar</h1>
+            <p className="text-xs sm:text-sm text-slate-500">
+              {lastOptimization ? `Son: ${lastOptimization}` : "Henuz optimizasyon yapilmadi"}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Select value={selectedDepot} onValueChange={setSelectedDepot}>
-              <SelectTrigger className="w-48 bg-white">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Depo secin" />
+              <SelectTrigger className="w-32 sm:w-48 bg-white text-sm">
+                <Filter className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
+                <SelectValue placeholder="Depo" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tum Depolar</SelectItem>
@@ -147,55 +145,57 @@ export default function RoutesPage() {
                 Liste
               </Button>
             </div>
-            <Button variant="outline" size="icon" onClick={fetchData} className="bg-white">
+            <Button variant="outline" size="icon" onClick={fetchData} className="bg-white shrink-0">
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </Button>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-4 gap-4 p-4 bg-slate-50">
+        {/* Stats Cards - Mobilde 2x2 grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 p-3 sm:p-4 bg-slate-50">
           <Card className="border-slate-200">
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="p-2 rounded-lg bg-emerald-100">
-                <Truck className="w-5 h-5 text-emerald-600" />
+            <CardContent className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4">
+              <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-100 shrink-0">
+                <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
               </div>
-              <div>
-                <p className="text-sm text-slate-500">Toplam Rota</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.totalRoutes}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-slate-500 truncate">Toplam Rota</p>
+                <p className="text-lg sm:text-2xl font-bold text-slate-900">{stats.totalRoutes}</p>
               </div>
             </CardContent>
           </Card>
           <Card className="border-slate-200">
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="p-2 rounded-lg bg-blue-100">
-                <MapPin className="w-5 h-5 text-blue-600" />
+            <CardContent className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4">
+              <div className="p-1.5 sm:p-2 rounded-lg bg-blue-100 shrink-0">
+                <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
               </div>
-              <div>
-                <p className="text-sm text-slate-500">Toplam Mesafe</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.totalDistance.toFixed(1)} km</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-slate-200">
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="p-2 rounded-lg bg-amber-100">
-                <Clock className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">Ort. Sure</p>
-                <p className="text-2xl font-bold text-slate-900">{Math.round(stats.avgDuration)} dk</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-slate-500 truncate">Mesafe</p>
+                <p className="text-lg sm:text-2xl font-bold text-slate-900">{stats.totalDistance.toFixed(0)} km</p>
               </div>
             </CardContent>
           </Card>
           <Card className="border-slate-200">
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="p-2 rounded-lg bg-emerald-100">
-                <TrendingDown className="w-5 h-5 text-emerald-600" />
+            <CardContent className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4">
+              <div className="p-1.5 sm:p-2 rounded-lg bg-amber-100 shrink-0">
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
               </div>
-              <div>
-                <p className="text-sm text-slate-500">Toplam Maliyet</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.totalCost.toLocaleString("tr-TR")} TL</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-slate-500 truncate">Ort. Sure</p>
+                <p className="text-lg sm:text-2xl font-bold text-slate-900">{Math.round(stats.avgDuration)} dk</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-slate-200">
+            <CardContent className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4">
+              <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-100 shrink-0">
+                <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm text-slate-500 truncate">Maliyet</p>
+                <p className="text-base sm:text-2xl font-bold text-slate-900">
+                  {stats.totalCost.toLocaleString("tr-TR")} TL
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -209,7 +209,7 @@ export default function RoutesPage() {
                 <AlertCircle className="w-8 h-8 text-amber-600" />
               </div>
               <h3 className="text-lg font-semibold text-slate-900 mb-2">Henuz Rota Yok</h3>
-              <p className="text-slate-500 mb-6">
+              <p className="text-slate-500 mb-6 text-sm">
                 Rotalari goruntulemek icin once Optimizasyon sayfasindan rota olusturun.
               </p>
               <Link href="/optimize">
@@ -221,10 +221,10 @@ export default function RoutesPage() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-1 min-h-[500px]">
+          <div className="flex flex-col sm:flex-row flex-1 min-h-[500px]">
             {viewMode === "map" ? (
               <>
-                <div className="flex-1 min-h-[500px]">
+                <div className="flex-1 min-h-[300px] sm:min-h-[500px]">
                   <RoutesMap
                     routes={routes as any}
                     depots={depots}
@@ -233,14 +233,14 @@ export default function RoutesPage() {
                   />
                 </div>
                 {selectedRoute && (
-                  <div className="w-96 border-l border-slate-200 overflow-y-auto bg-white max-h-[calc(100vh-300px)]">
+                  <div className="w-full sm:w-96 border-t sm:border-t-0 sm:border-l border-slate-200 overflow-y-auto bg-white max-h-[50vh] sm:max-h-[calc(100vh-300px)]">
                     <RouteDetails route={selectedRoute as any} onClose={() => setSelectedRoute(null)} />
                   </div>
                 )}
               </>
             ) : (
-              <div className="flex-1 p-4 bg-slate-50 overflow-auto">
-                <div className="grid gap-4">
+              <div className="flex-1 p-3 sm:p-4 bg-slate-50 overflow-auto">
+                <div className="grid gap-3 sm:gap-4">
                   {routes.map((route, index) => (
                     <Card
                       key={route.id}
@@ -249,68 +249,58 @@ export default function RoutesPage() {
                       }`}
                       onClick={() => setSelectedRoute(route)}
                     >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
+                      <CardContent className="p-3 sm:p-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 sm:gap-4">
                             <div
-                              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base shrink-0"
                               style={{ backgroundColor: `hsl(${(index * 45) % 360}, 70%, 50%)` }}
                             >
                               {index + 1}
                             </div>
-                            <div>
-                              <h3 className="font-semibold text-slate-900">{route.vehicle_plate}</h3>
-                              <p className="text-sm text-slate-500">{route.depot_name}</p>
+                            <div className="min-w-0">
+                              <h3 className="font-semibold text-slate-900 text-sm sm:text-base">
+                                {route.vehicle_plate}
+                              </h3>
+                              <p className="text-xs sm:text-sm text-slate-500 truncate">{route.depot_name}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-6">
+
+                          <div className="grid grid-cols-4 sm:flex sm:items-center gap-3 sm:gap-6">
                             <div className="text-center">
-                              <p className="text-lg font-bold text-slate-900">
-                                {route.total_distance_km.toFixed(1)} km
+                              <p className="text-sm sm:text-lg font-bold text-slate-900">
+                                {route.total_distance_km.toFixed(0)}
                               </p>
-                              <p className="text-xs text-slate-500">Mesafe</p>
+                              <p className="text-[10px] sm:text-xs text-slate-500">km</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-lg font-bold text-slate-900">
-                                {Math.round(route.total_duration_min)} dk
+                              <p className="text-sm sm:text-lg font-bold text-slate-900">
+                                {Math.round(route.total_duration_min)}
                               </p>
-                              <p className="text-xs text-slate-500">Sure</p>
+                              <p className="text-[10px] sm:text-xs text-slate-500">dk</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-lg font-bold text-slate-900">{route.stops.length}</p>
-                              <p className="text-xs text-slate-500">Durak</p>
+                              <p className="text-sm sm:text-lg font-bold text-slate-900">{route.stops.length}</p>
+                              <p className="text-[10px] sm:text-xs text-slate-500">durak</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-lg font-bold text-emerald-600">
-                                {route.total_cost.toLocaleString("tr-TR")} TL
+                              <p className="text-sm sm:text-lg font-bold text-emerald-600">
+                                {route.total_cost.toLocaleString("tr-TR")}
                               </p>
-                              <p className="text-xs text-slate-500">Maliyet</p>
+                              <p className="text-[10px] sm:text-xs text-slate-500">TL</p>
                             </div>
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                route.status === "completed"
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : route.status === "in_progress"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "bg-amber-100 text-amber-700"
-                              }`}
-                            >
-                              {route.status === "completed"
-                                ? "Tamamlandi"
-                                : route.status === "in_progress"
-                                  ? "Devam Ediyor"
-                                  : "Bekliyor"}
-                            </span>
                           </div>
                         </div>
 
-                        {/* Durak listesi */}
                         {selectedRoute?.id === route.id && route.stops.length > 0 && (
                           <div className="mt-4 pt-4 border-t border-slate-200">
                             <p className="text-sm font-medium text-slate-700 mb-2">Duraklar:</p>
                             <div className="flex flex-wrap gap-2">
                               {route.stops.map((stop, idx) => (
-                                <span key={stop.id} className="px-2 py-1 bg-slate-100 rounded text-sm text-slate-600">
+                                <span
+                                  key={stop.id}
+                                  className="px-2 py-1 bg-slate-100 rounded text-xs sm:text-sm text-slate-600"
+                                >
                                   {idx + 1}. {stop.customer_name}
                                 </span>
                               ))}

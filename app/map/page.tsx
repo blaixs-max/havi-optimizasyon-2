@@ -38,6 +38,8 @@ import {
   Square,
   MoreVertical,
   CheckCheck,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -51,6 +53,7 @@ export default function MapPage() {
   const [selectedRoute, setSelectedRoute] = useState<MockRoute | null>(null)
   const [showRoutePanel, setShowRoutePanel] = useState(true)
   const [optimizedData, setOptimizedData] = useState<StoredRouteData | null>(null)
+  const [mobileView, setMobileView] = useState<"list" | "map">("list")
 
   useEffect(() => {
     fetchData()
@@ -187,220 +190,247 @@ export default function MapPage() {
   return (
     <DashboardLayout>
       <div className="flex flex-col h-[calc(100vh-3.5rem)]">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-white shrink-0">
+        {/* Header - Mobil responsive header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border-b border-slate-200 bg-white shrink-0 gap-3">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Harita Gorunumu</h1>
-            <p className="text-sm text-slate-500">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900">Harita Gorunumu</h1>
+            <p className="text-xs sm:text-sm text-slate-500 line-clamp-1">
               {optimizedData
-                ? `Son optimizasyon: ${new Date(optimizedData.optimizedAt).toLocaleString("tr-TR")} (${optimizedData.provider})`
+                ? `Son: ${new Date(optimizedData.optimizedAt).toLocaleString("tr-TR")}`
                 : isDemo
-                  ? "Demo modu - Ornek veriler gosteriliyor"
-                  : "Tum depo, arac ve musteri konumlarini goruntuleyin"}
+                  ? "Demo modu"
+                  : "Tum konumlari goruntuleyin"}
             </p>
           </div>
-          <div className="flex items-center gap-4 text-sm">
+
+          <div className="flex items-center gap-2 sm:hidden">
+            <Button
+              size="sm"
+              variant={mobileView === "list" ? "default" : "outline"}
+              onClick={() => setMobileView("list")}
+              className={mobileView === "list" ? "bg-emerald-600" : ""}
+            >
+              Rotalar
+            </Button>
+            <Button
+              size="sm"
+              variant={mobileView === "map" ? "default" : "outline"}
+              onClick={() => setMobileView("map")}
+              className={mobileView === "map" ? "bg-emerald-600" : ""}
+            >
+              Harita
+            </Button>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 flex-wrap">
             {pendingCount > 0 && (
               <Button size="sm" onClick={handleApproveAll} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
                 <CheckCheck className="w-4 h-4" />
                 Tumunu Onayla ({pendingCount})
               </Button>
             )}
-            <Badge variant="outline" className="gap-2 bg-blue-50 text-blue-700 border-blue-200">
+            <Badge variant="outline" className="gap-1 bg-blue-50 text-blue-700 border-blue-200 text-xs">
               <div className="w-2 h-2 rounded-full bg-blue-600" />
               {depots.length} Depo
             </Badge>
-            <Badge variant="outline" className="gap-2 bg-emerald-50 text-emerald-700 border-emerald-200">
+            <Badge variant="outline" className="gap-1 bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
               {vehicles.length} Arac
             </Badge>
-            <Badge variant="outline" className="gap-2 bg-orange-50 text-orange-700 border-orange-200">
+            <Badge variant="outline" className="gap-1 bg-orange-50 text-orange-700 border-orange-200 text-xs">
               <div className="w-2 h-2 rounded-full bg-orange-500" />
               {customers.length} Musteri
-            </Badge>
-            <Badge
-              variant="outline"
-              className={cn(
-                "gap-2",
-                optimizedData
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-purple-50 text-purple-700 border-purple-200",
-              )}
-            >
-              <Route className="w-3 h-3" />
-              {routes.length} Rota {optimizedData && "(Optimize)"}
             </Badge>
           </div>
         </div>
 
         {optimizedData && (
-          <div className="px-4 py-2 bg-emerald-50 border-b border-emerald-200 flex items-center gap-2 text-sm text-emerald-700 shrink-0">
-            <AlertCircle className="w-4 h-4" />
-            <span>
+          <div className="px-3 sm:px-4 py-2 bg-emerald-50 border-b border-emerald-200 flex items-center gap-2 text-xs sm:text-sm text-emerald-700 shrink-0">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span className="line-clamp-1">
               <strong>{summaryData.totalRoutes}</strong> rota,
               <strong> {summaryData.totalDistance.toFixed(1)}</strong> km,
-              <strong> {summaryData.totalCost.toLocaleString("tr-TR")}</strong> TL - Optimize sayfasindan gelen sonuclar
-              gosteriliyor
+              <strong> {summaryData.totalCost.toLocaleString("tr-TR")}</strong> TL
             </span>
           </div>
         )}
 
-        {/* Main Content */}
+        {/* Main Content - Mobil responsive layout */}
         <div className="flex-1 flex overflow-hidden min-h-0">
-          {/* Route Panel */}
-          {showRoutePanel && (
-            <div className="w-80 border-r border-slate-200 bg-white flex flex-col min-h-0">
-              <div className="p-3 border-b border-slate-200 bg-slate-50 shrink-0">
-                <h2 className="font-semibold text-slate-900 flex items-center gap-2">
-                  <Route className="w-4 h-4" />
-                  {optimizedData ? "Optimize Edilmis Rotalar" : "Aktif Rotalar"}
-                </h2>
-              </div>
-
-              <ScrollArea className="flex-1 min-h-0">
-                <div className="p-2 space-y-2">
-                  {routes.length === 0 ? (
-                    <div className="p-4 text-center text-slate-500 text-sm">Henuz rota olusturulmadi</div>
-                  ) : (
-                    routes.map((route) => {
-                      const vehicle = getVehicleByRoute(route)
-                      const depot = getDepotByRoute(route)
-                      const isSelected = selectedRoute?.id === route.id
-
-                      return (
-                        <Card
-                          key={route.id}
-                          className={cn(
-                            "p-3 cursor-pointer transition-all hover:shadow-md",
-                            isSelected ? "ring-2 ring-emerald-500 bg-emerald-50" : "hover:bg-slate-50",
-                          )}
-                          onClick={() => setSelectedRoute(isSelected ? null : route)}
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Truck className="w-4 h-4 text-slate-600" />
-                              <span className="font-medium text-sm">{vehicle?.plate || "Arac"}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Badge className={cn("text-xs text-white", getStatusColor(route.status))}>
-                                {getStatusText(route.status)}
-                              </Badge>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                    <MoreVertical className="w-3 h-3" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                  {route.status === "pending" && (
-                                    <DropdownMenuItem onClick={() => handleStatusChange(route.id, "approved")}>
-                                      <CheckCircle className="w-4 h-4 mr-2 text-blue-500" />
-                                      Onayla
-                                    </DropdownMenuItem>
-                                  )}
-                                  {(route.status === "pending" || route.status === "approved") && (
-                                    <DropdownMenuItem onClick={() => handleStatusChange(route.id, "in_progress")}>
-                                      <Play className="w-4 h-4 mr-2 text-emerald-500" />
-                                      Yola Cikart
-                                    </DropdownMenuItem>
-                                  )}
-                                  {route.status === "in_progress" && (
-                                    <DropdownMenuItem onClick={() => handleStatusChange(route.id, "completed")}>
-                                      <Square className="w-4 h-4 mr-2 text-slate-500" />
-                                      Tamamla
-                                    </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuSeparator />
-                                  {route.status !== "cancelled" && route.status !== "completed" && (
-                                    <DropdownMenuItem
-                                      onClick={() => handleStatusChange(route.id, "cancelled")}
-                                      className="text-red-600"
-                                    >
-                                      <Square className="w-4 h-4 mr-2" />
-                                      Iptal Et
-                                    </DropdownMenuItem>
-                                  )}
-                                  {(route.status === "cancelled" || route.status === "completed") && (
-                                    <DropdownMenuItem onClick={() => handleStatusChange(route.id, "pending")}>
-                                      <AlertCircle className="w-4 h-4 mr-2 text-amber-500" />
-                                      Beklemeye Al
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </div>
-
-                          <div className="text-xs text-slate-500 mb-2">{depot?.name || "Depo"}</div>
-
-                          <div className="grid grid-cols-3 gap-2 text-xs">
-                            <div className="flex items-center gap-1 text-slate-600">
-                              <Navigation className="w-3 h-3" />
-                              {route.total_distance_km?.toFixed(1) || 0} km
-                            </div>
-                            <div className="flex items-center gap-1 text-slate-600">
-                              <Clock className="w-3 h-3" />
-                              {route.total_duration_min || 0} dk
-                            </div>
-                            <div className="flex items-center gap-1 text-slate-600">
-                              <MapPin className="w-3 h-3" />
-                              {route.stops?.length || 0} durak
-                            </div>
-                          </div>
-
-                          {isSelected && route.stops && route.stops.length > 0 && (
-                            <div className="mt-3 pt-3 border-t border-slate-200">
-                              <div className="text-xs font-medium text-slate-700 mb-2">Duraklar:</div>
-                              <div className="space-y-2">
-                                {route.stops.map((stop, index) => (
-                                  <div key={stop.customer_id} className="flex items-center gap-2">
-                                    <div
-                                      className={cn(
-                                        "w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold",
-                                        index === 0 ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600",
-                                      )}
-                                    >
-                                      {stop.order}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs font-medium truncate">{stop.customer_name}</div>
-                                      <div className="text-xs text-slate-400">{stop.arrival_time}</div>
-                                    </div>
-                                    {index === 0 && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-[10px] px-1 py-0 bg-emerald-50 text-emerald-600 border-emerald-200"
-                                      >
-                                        Sirada
-                                      </Badge>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-
-                              <div className="mt-3 pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
-                                <div className="flex items-center gap-1 text-slate-600">
-                                  <Fuel className="w-3 h-3" />
-                                  Yakit: {(route.fuel_cost || 0).toLocaleString("tr-TR")} TL
-                                </div>
-                                <div className="flex items-center gap-1 text-slate-600">
-                                  <Package className="w-3 h-3" />
-                                  Toplam: {(route.total_cost || 0).toLocaleString("tr-TR")} TL
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </Card>
-                      )
-                    })
-                  )}
-                </div>
-              </ScrollArea>
+          {/* Route Panel - Mobilde tam genislik veya gizli */}
+          <div
+            className={cn(
+              "border-r border-slate-200 bg-white flex flex-col min-h-0",
+              // Mobilde: mobileView="list" ise tam genislik, degilse gizli
+              // Desktop: showRoutePanel true ise 320px, degilse gizli
+              "w-full sm:w-80",
+              mobileView !== "list" && "hidden sm:flex",
+              !showRoutePanel && "sm:hidden",
+            )}
+          >
+            <div className="p-3 border-b border-slate-200 bg-slate-50 shrink-0 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900 flex items-center gap-2 text-sm">
+                <Route className="w-4 h-4" />
+                {optimizedData ? "Optimize Edilmis Rotalar" : "Aktif Rotalar"}
+              </h2>
+              {pendingCount > 0 && (
+                <Button
+                  size="sm"
+                  onClick={handleApproveAll}
+                  className="bg-blue-600 hover:bg-blue-700 text-white gap-1 text-xs sm:hidden"
+                >
+                  <CheckCheck className="w-3 h-3" />
+                  Onayla ({pendingCount})
+                </Button>
+              )}
             </div>
-          )}
 
-          {/* Map */}
-          <div className="flex-1 relative min-h-0">
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="p-2 space-y-2">
+                {routes.length === 0 ? (
+                  <div className="p-4 text-center text-slate-500 text-sm">Henuz rota olusturulmadi</div>
+                ) : (
+                  routes.map((route) => {
+                    const vehicle = getVehicleByRoute(route)
+                    const depot = getDepotByRoute(route)
+                    const isSelected = selectedRoute?.id === route.id
+
+                    return (
+                      <Card
+                        key={route.id}
+                        className={cn(
+                          "p-3 cursor-pointer transition-all hover:shadow-md",
+                          isSelected ? "ring-2 ring-emerald-500 bg-emerald-50" : "hover:bg-slate-50",
+                        )}
+                        onClick={() => {
+                          setSelectedRoute(isSelected ? null : route)
+                          if (!isSelected) setMobileView("map")
+                        }}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Truck className="w-4 h-4 text-slate-600" />
+                            <span className="font-medium text-sm">{vehicle?.plate || "Arac"}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Badge className={cn("text-xs text-white", getStatusColor(route.status))}>
+                              {getStatusText(route.status)}
+                            </Badge>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                  <MoreVertical className="w-3 h-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                {route.status === "pending" && (
+                                  <DropdownMenuItem onClick={() => handleStatusChange(route.id, "approved")}>
+                                    <CheckCircle className="w-4 h-4 mr-2 text-blue-500" />
+                                    Onayla
+                                  </DropdownMenuItem>
+                                )}
+                                {(route.status === "pending" || route.status === "approved") && (
+                                  <DropdownMenuItem onClick={() => handleStatusChange(route.id, "in_progress")}>
+                                    <Play className="w-4 h-4 mr-2 text-emerald-500" />
+                                    Yola Cikart
+                                  </DropdownMenuItem>
+                                )}
+                                {route.status === "in_progress" && (
+                                  <DropdownMenuItem onClick={() => handleStatusChange(route.id, "completed")}>
+                                    <Square className="w-4 h-4 mr-2 text-slate-500" />
+                                    Tamamla
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                {route.status !== "cancelled" && route.status !== "completed" && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleStatusChange(route.id, "cancelled")}
+                                    className="text-red-600"
+                                  >
+                                    <Square className="w-4 h-4 mr-2" />
+                                    Iptal Et
+                                  </DropdownMenuItem>
+                                )}
+                                {(route.status === "cancelled" || route.status === "completed") && (
+                                  <DropdownMenuItem onClick={() => handleStatusChange(route.id, "pending")}>
+                                    <AlertCircle className="w-4 h-4 mr-2 text-amber-500" />
+                                    Beklemeye Al
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-slate-500 mb-2">{depot?.name || "Depo"}</div>
+
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div className="flex items-center gap-1 text-slate-600">
+                            <Navigation className="w-3 h-3" />
+                            {route.total_distance_km?.toFixed(1) || 0} km
+                          </div>
+                          <div className="flex items-center gap-1 text-slate-600">
+                            <Clock className="w-3 h-3" />
+                            {route.total_duration_min || 0} dk
+                          </div>
+                          <div className="flex items-center gap-1 text-slate-600">
+                            <MapPin className="w-3 h-3" />
+                            {route.stops?.length || 0} durak
+                          </div>
+                        </div>
+
+                        {isSelected && route.stops && route.stops.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-slate-200">
+                            <div className="text-xs font-medium text-slate-700 mb-2">Duraklar:</div>
+                            <div className="space-y-2">
+                              {route.stops.map((stop, index) => (
+                                <div key={stop.customer_id} className="flex items-center gap-2">
+                                  <div
+                                    className={cn(
+                                      "w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold",
+                                      index === 0 ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600",
+                                    )}
+                                  >
+                                    {stop.order}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-medium truncate">{stop.customer_name}</div>
+                                    <div className="text-xs text-slate-400">{stop.arrival_time}</div>
+                                  </div>
+                                  {index === 0 && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] px-1 py-0 bg-emerald-50 text-emerald-600 border-emerald-200"
+                                    >
+                                      Sirada
+                                    </Badge>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="mt-3 pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                              <div className="flex items-center gap-1 text-slate-600">
+                                <Fuel className="w-3 h-3" />
+                                Yakit: {(route.fuel_cost || 0).toLocaleString("tr-TR")} TL
+                              </div>
+                              <div className="flex items-center gap-1 text-slate-600">
+                                <Package className="w-3 h-3" />
+                                Toplam: {(route.total_cost || 0).toLocaleString("tr-TR")} TL
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    )
+                  })
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Map - Mobilde mobileView="map" ise gorunur */}
+          <div className={cn("flex-1 relative min-h-0", mobileView !== "map" && "hidden sm:block")}>
             <FullscreenMap
               depots={depots}
               vehicles={vehicles}
@@ -410,51 +440,63 @@ export default function MapPage() {
               loading={loading}
             />
 
-            {/* Toggle Route Panel Button */}
+            {/* Toggle Route Panel Button - Desktop only */}
             <Button
               variant="secondary"
               size="sm"
-              className="absolute top-4 left-4 z-[1000] shadow-lg"
+              className="absolute top-4 left-4 z-[1000] shadow-lg hidden sm:flex"
               onClick={() => setShowRoutePanel(!showRoutePanel)}
             >
-              <Route className="w-4 h-4 mr-1" />
-              {showRoutePanel ? "Paneli Gizle" : "Rotalari Goster"}
+              {showRoutePanel ? <ChevronLeft className="w-4 h-4 mr-1" /> : <ChevronRight className="w-4 h-4 mr-1" />}
+              {showRoutePanel ? "Gizle" : "Rotalar"}
             </Button>
 
-            {/* Selected Route Info */}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="absolute top-4 left-4 z-[1000] shadow-lg sm:hidden"
+              onClick={() => setMobileView("list")}
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Rotalar
+            </Button>
+
+            {/* Selected Route Info - Mobilde daha kompakt */}
             {selectedRoute && (
-              <Card className="absolute bottom-4 left-4 right-4 z-[1000] p-4 bg-white/95 backdrop-blur shadow-lg max-w-2xl mx-auto">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <Truck className="w-5 h-5 text-emerald-600" />
+              <Card className="absolute bottom-4 left-4 right-4 z-[1000] p-3 sm:p-4 bg-white/95 backdrop-blur shadow-lg max-w-2xl mx-auto">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 sm:gap-4">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                      <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
                     </div>
-                    <div>
-                      <div className="font-semibold">{getVehicleByRoute(selectedRoute)?.plate || "Arac"}</div>
-                      <div className="text-sm text-slate-500">{getDepotByRoute(selectedRoute)?.name || "Depo"}</div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm sm:text-base truncate">
+                        {getVehicleByRoute(selectedRoute)?.plate || "Arac"}
+                      </div>
+                      <div className="text-xs sm:text-sm text-slate-500 truncate">
+                        {getDepotByRoute(selectedRoute)?.name || "Depo"}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6 text-sm">
+                  <div className="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm">
                     <div className="text-center">
-                      <div className="font-bold text-lg text-emerald-600">
+                      <div className="font-bold text-sm sm:text-lg text-emerald-600">
                         {(selectedRoute.total_distance_km || 0).toFixed(1)}
                       </div>
-                      <div className="text-slate-500 text-xs">Kilometre</div>
+                      <div className="text-slate-500 text-[10px] sm:text-xs">km</div>
                     </div>
                     <div className="text-center">
-                      <div className="font-bold text-lg text-blue-600">{selectedRoute.total_duration_min || 0}</div>
-                      <div className="text-slate-500 text-xs">Dakika</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-bold text-lg text-purple-600">{selectedRoute.stops?.length || 0}</div>
-                      <div className="text-slate-500 text-xs">Durak</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-bold text-lg text-amber-600">
-                        {(selectedRoute.total_cost || 0).toLocaleString("tr-TR")}
+                      <div className="font-bold text-sm sm:text-lg text-blue-600">
+                        {selectedRoute.total_duration_min || 0}
                       </div>
-                      <div className="text-slate-500 text-xs">TL Maliyet</div>
+                      <div className="text-slate-500 text-[10px] sm:text-xs">dk</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-sm sm:text-lg text-purple-600">
+                        {selectedRoute.stops?.length || 0}
+                      </div>
+                      <div className="text-slate-500 text-[10px] sm:text-xs">durak</div>
                     </div>
                   </div>
                 </div>

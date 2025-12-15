@@ -27,7 +27,6 @@ export default function ReportsPage() {
 
   const fetchStats = async () => {
     if (!supabase) {
-      // Demo stats
       setStats({
         totalRoutes: 47,
         totalDistance: 3250,
@@ -70,16 +69,16 @@ export default function ReportsPage() {
   return (
     <DashboardLayout>
       <div className="flex flex-col h-full overflow-y-auto bg-slate-50">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-white">
+        {/* Header - Mobil responsive */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-6 border-b border-slate-200 bg-white gap-3">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Raporlar</h1>
-            <p className="text-sm text-slate-500">Performans metrikleri ve maliyet analizi</p>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900">Raporlar</h1>
+            <p className="text-xs sm:text-sm text-slate-500">Performans metrikleri ve maliyet analizi</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-40 bg-white">
-                <Calendar className="w-4 h-4 mr-2" />
+              <SelectTrigger className="w-32 sm:w-40 bg-white text-sm">
+                <Calendar className="w-4 h-4 mr-1 sm:mr-2 shrink-0" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -89,88 +88,92 @@ export default function ReportsPage() {
                 <SelectItem value="year">Bu Yil</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" className="bg-white">
-              <Download className="w-4 h-4 mr-2" />
-              Rapor Indir
+            <Button variant="outline" className="bg-white text-sm">
+              <Download className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Rapor Indir</span>
             </Button>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-4 gap-4">
+        {/* Stats Grid - Mobilde 2x2 grid */}
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <Card className="border-slate-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">Toplam Rota</p>
-                    <p className="text-3xl font-bold text-slate-900 mt-1">{stats.totalRoutes}</p>
+              <CardContent className="p-3 sm:p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm text-slate-500 truncate">Toplam Rota</p>
+                    <p className="text-xl sm:text-3xl font-bold text-slate-900 mt-1">{stats.totalRoutes}</p>
                   </div>
-                  <div className="p-3 rounded-xl bg-emerald-100">
-                    <Truck className="w-6 h-6 text-emerald-600" />
+                  <div className="p-2 sm:p-3 rounded-xl bg-emerald-100 shrink-0">
+                    <Truck className="w-4 h-4 sm:w-6 sm:h-6 text-emerald-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-slate-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">Toplam Mesafe</p>
-                    <p className="text-3xl font-bold text-slate-900 mt-1">{stats.totalDistance.toFixed(0)} km</p>
+              <CardContent className="p-3 sm:p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm text-slate-500 truncate">Mesafe</p>
+                    <p className="text-xl sm:text-3xl font-bold text-slate-900 mt-1">
+                      {stats.totalDistance.toFixed(0)} km
+                    </p>
                   </div>
-                  <div className="p-3 rounded-xl bg-blue-100">
-                    <MapPin className="w-6 h-6 text-blue-600" />
+                  <div className="p-2 sm:p-3 rounded-xl bg-blue-100 shrink-0">
+                    <MapPin className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-slate-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">Toplam Maliyet</p>
-                    <p className="text-3xl font-bold text-slate-900 mt-1">
+              <CardContent className="p-3 sm:p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm text-slate-500 truncate">Maliyet</p>
+                    <p className="text-lg sm:text-3xl font-bold text-slate-900 mt-1">
                       {stats.totalCost.toLocaleString("tr-TR")} TL
                     </p>
                   </div>
-                  <div className="p-3 rounded-xl bg-emerald-100">
-                    <BarChart3 className="w-6 h-6 text-emerald-600" />
+                  <div className="p-2 sm:p-3 rounded-xl bg-emerald-100 shrink-0">
+                    <BarChart3 className="w-4 h-4 sm:w-6 sm:h-6 text-emerald-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-slate-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">Yakit Maliyeti</p>
-                    <p className="text-3xl font-bold text-slate-900 mt-1">
+              <CardContent className="p-3 sm:p-6">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm text-slate-500 truncate">Yakit</p>
+                    <p className="text-lg sm:text-3xl font-bold text-slate-900 mt-1">
                       {stats.totalFuelCost.toLocaleString("tr-TR")} TL
                     </p>
                   </div>
-                  <div className="p-3 rounded-xl bg-amber-100">
-                    <Fuel className="w-6 h-6 text-amber-600" />
+                  <div className="p-2 sm:p-3 rounded-xl bg-amber-100 shrink-0">
+                    <Fuel className="w-4 h-4 sm:w-6 sm:h-6 text-amber-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Secondary Stats */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Secondary Stats - Mobilde stack */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <Card className="border-slate-200">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium text-slate-900">Ort. Maliyet / KM</CardTitle>
+              <CardHeader className="pb-2 p-3 sm:p-6 sm:pb-2">
+                <CardTitle className="text-sm sm:text-base font-medium text-slate-900">Ort. Maliyet / KM</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                 <div className="flex items-end gap-2">
-                  <span className="text-2xl font-bold text-slate-900">{stats.avgCostPerKm.toFixed(2)} TL</span>
-                  <span className="text-sm text-emerald-600 flex items-center mb-1">
-                    <TrendingDown className="w-4 h-4 mr-1" />
+                  <span className="text-xl sm:text-2xl font-bold text-slate-900">
+                    {stats.avgCostPerKm.toFixed(2)} TL
+                  </span>
+                  <span className="text-xs sm:text-sm text-emerald-600 flex items-center mb-1">
+                    <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                     -5.2%
                   </span>
                 </div>
@@ -178,14 +181,14 @@ export default function ReportsPage() {
             </Card>
 
             <Card className="border-slate-200">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium text-slate-900">Arac Kullanim Orani</CardTitle>
+              <CardHeader className="pb-2 p-3 sm:p-6 sm:pb-2">
+                <CardTitle className="text-sm sm:text-base font-medium text-slate-900">Arac Kullanim</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                 <div className="flex items-end gap-2">
-                  <span className="text-2xl font-bold text-slate-900">{stats.vehicleUtilization}%</span>
-                  <span className="text-sm text-emerald-600 flex items-center mb-1">
-                    <TrendingUp className="w-4 h-4 mr-1" />
+                  <span className="text-xl sm:text-2xl font-bold text-slate-900">{stats.vehicleUtilization}%</span>
+                  <span className="text-xs sm:text-sm text-emerald-600 flex items-center mb-1">
+                    <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                     +3.1%
                   </span>
                 </div>
@@ -199,13 +202,13 @@ export default function ReportsPage() {
             </Card>
 
             <Card className="border-slate-200">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-medium text-slate-900">Maliyet Tasarrufu</CardTitle>
+              <CardHeader className="pb-2 p-3 sm:p-6 sm:pb-2">
+                <CardTitle className="text-sm sm:text-base font-medium text-slate-900">Maliyet Tasarrufu</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
                 <div className="flex items-end gap-2">
-                  <span className="text-2xl font-bold text-emerald-600">{stats.costSavings}%</span>
-                  <span className="text-sm text-slate-500 mb-1">optimizasyon ile</span>
+                  <span className="text-xl sm:text-2xl font-bold text-emerald-600">{stats.costSavings}%</span>
+                  <span className="text-xs sm:text-sm text-slate-500 mb-1">optimizasyon ile</span>
                 </div>
               </CardContent>
             </Card>
@@ -213,18 +216,20 @@ export default function ReportsPage() {
 
           {/* Depot Performance */}
           <Card className="border-slate-200">
-            <CardHeader>
-              <CardTitle className="text-slate-900">Depo Performansi</CardTitle>
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-sm sm:text-base text-slate-900">Depo Performansi</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="space-y-3 sm:space-y-4">
                 {["Istanbul Depo", "Ankara Depo", "Izmir Depo"].map((depot, i) => (
-                  <div key={depot} className="flex items-center gap-4">
-                    <div className="w-32 font-medium text-slate-700">{depot}</div>
-                    <div className="flex-1 h-4 bg-slate-200 rounded-full overflow-hidden">
+                  <div key={depot} className="flex items-center gap-2 sm:gap-4">
+                    <div className="w-24 sm:w-32 font-medium text-slate-700 text-xs sm:text-sm truncate">{depot}</div>
+                    <div className="flex-1 h-3 sm:h-4 bg-slate-200 rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${[85, 72, 68][i]}%` }} />
                     </div>
-                    <div className="w-16 text-right text-sm font-medium text-slate-900">{[85, 72, 68][i]}%</div>
+                    <div className="w-10 sm:w-16 text-right text-xs sm:text-sm font-medium text-slate-900">
+                      {[85, 72, 68][i]}%
+                    </div>
                   </div>
                 ))}
               </div>

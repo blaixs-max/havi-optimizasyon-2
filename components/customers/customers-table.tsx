@@ -128,7 +128,7 @@ export function CustomersTable() {
       {isDemo && (
         <Alert className="mt-4 border-amber-500/50 bg-amber-500/10">
           <AlertTriangle className="h-4 w-4 text-amber-500" />
-          <AlertDescription className="text-amber-500">
+          <AlertDescription className="text-amber-500 text-xs sm:text-sm">
             Demo modu aktif. Supabase bağlantısı için environment variables ekleyin.
           </AlertDescription>
         </Alert>
@@ -137,16 +137,15 @@ export function CustomersTable() {
       {missingCoordsCount > 0 && (
         <Alert className="mt-4 border-orange-500/50 bg-orange-500/10">
           <MapPin className="h-4 w-4 text-orange-500" />
-          <AlertDescription className="text-orange-600 dark:text-orange-400">
-            <strong>{missingCoordsCount} müşteri</strong> için koordinat bilgisi eksik. Optimizasyon sayfasından
-            koordinat girebilirsiniz.
+          <AlertDescription className="text-orange-600 dark:text-orange-400 text-xs sm:text-sm">
+            <strong>{missingCoordsCount} müşteri</strong> için koordinat bilgisi eksik.
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Filters */}
-      <div className="mt-4 flex flex-wrap items-center gap-4">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+      {/* Filters - Mobil responsive */}
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Müşteri veya adres ara..."
@@ -158,50 +157,53 @@ export function CustomersTable() {
             className="pl-9"
           />
         </div>
-        <Select
-          value={filterDepot}
-          onValueChange={(v) => {
-            setFilterDepot(v)
-            setPage(0)
-          }}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Depo filtrele" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tüm Depolar</SelectItem>
-            {depots.map((d) => (
-              <SelectItem key={d.id} value={d.id}>
-                {d.city}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={filterCity}
-          onValueChange={(v) => {
-            setFilterCity(v)
-            setPage(0)
-          }}
-        >
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Şehir" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tüm Şehirler</SelectItem>
-            {cities.map((city) => (
-              <SelectItem key={city} value={city}>
-                {city}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <Select
+            value={filterDepot}
+            onValueChange={(v) => {
+              setFilterDepot(v)
+              setPage(0)
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[150px]">
+              <SelectValue placeholder="Depo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tüm Depolar</SelectItem>
+              {depots.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.city}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={filterCity}
+            onValueChange={(v) => {
+              setFilterCity(v)
+              setPage(0)
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[130px]">
+              <SelectValue placeholder="Şehir" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tüm Şehirler</SelectItem>
+              {cities.map((city) => (
+                <SelectItem key={city} value={city}>
+                  {city}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="text-xs sm:text-sm text-muted-foreground">
           {filteredCustomers.length} / {customers.length} müşteri
         </div>
       </div>
 
-      <Card className="mt-4">
+      {/* Desktop Table */}
+      <Card className="mt-4 hidden sm:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -302,6 +304,98 @@ export function CustomersTable() {
           </div>
         )}
       </Card>
+
+      {/* Mobile Cards */}
+      <div className="mt-4 sm:hidden space-y-3">
+        {paginatedCustomers.map((customer) => {
+          const hasValidCoords = customer.lat && customer.lng && customer.lat !== 0 && customer.lng !== 0
+          return (
+            <Card key={customer.id} className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-medium text-slate-900 truncate">{customer.name}</h3>
+                  <p className="text-xs text-slate-500 truncate mt-1">{customer.address}</p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setEditingCustomer(customer)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Düzenle
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive" onClick={() => deleteCustomer(customer.id)}>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Sil
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap mb-3">
+                <Badge className={`${PRIORITY_LABELS[customer.priority]?.color || "bg-gray-500"} text-white text-xs`}>
+                  {PRIORITY_LABELS[customer.priority]?.label || `P${customer.priority}`}
+                </Badge>
+                {customer.assigned_depot ? (
+                  <Badge
+                    variant="outline"
+                    className="text-xs"
+                    style={{
+                      borderColor: DEPOT_COLORS[customer.assigned_depot.city]?.primary,
+                      color: DEPOT_COLORS[customer.assigned_depot.city]?.primary,
+                    }}
+                  >
+                    {customer.assigned_depot.city}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs">
+                    Atanmamış
+                  </Badge>
+                )}
+                <span className="text-xs text-slate-500">{customer.city}</span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="font-medium">{customer.demand_pallet || customer.demand_pallets}</span>
+                  <span className="text-slate-500">palet</span>
+                </div>
+                {hasValidCoords ? (
+                  <div className="flex items-center gap-1 text-slate-500 font-mono">
+                    <MapPin className="h-3 w-3 text-green-500" />
+                    {customer.lat.toFixed(2)}, {customer.lng.toFixed(2)}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-orange-500">
+                    <AlertTriangle className="h-3 w-3" />
+                    Koordinat Eksik
+                  </div>
+                )}
+              </div>
+            </Card>
+          )
+        })}
+
+        {/* Mobile Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-2">
+            <div className="text-xs text-muted-foreground">
+              {page + 1} / {totalPages}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 0}>
+                Önceki
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page >= totalPages - 1}>
+                Sonraki
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <CustomerFormDialog
         open={!!editingCustomer}
