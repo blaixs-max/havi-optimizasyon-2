@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
+import { toast } from "@/components/ui/use-toast"
 import {
   Route,
   Truck,
@@ -46,13 +47,14 @@ export function OptimizationPanel() {
   const [result, setResult] = useState<OptimizationResult | null>(null)
   const [progress, setProgress] = useState(0)
   const [isDemo, setIsDemo] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [optimizeError, setOptimizeError] = useState<string | null>(null)
 
   const [missingCoordinatesCustomers, setMissingCoordinatesCustomers] = useState<Customer[]>([])
   const [showMissingCoordinatesDialog, setShowMissingCoordinatesDialog] = useState(false)
 
-  // Parametreler
+  // Parameters
   const [selectedDepots, setSelectedDepots] = useState<string[]>([])
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([])
   const [fuelPrice, setFuelPrice] = useState(47.5)
   const [maxRouteDistance, setMaxRouteDistance] = useState<number | null>(null)
   const [maxRouteDuration, setMaxRouteDuration] = useState(600)
@@ -151,41 +153,48 @@ export function OptimizationPanel() {
     fetchData()
   }
 
-  function checkMissingCoordinates(): Customer[] {
-    return customers.filter((c) => !c.lat || !c.lng || c.lat === 0 || c.lng === 0)
-  }
+  const handleOptimize = async () => {
+    console.log("[v0] Starting optimization")
+    console.log("[v0] Algorithm:", algorithm)
+    console.log("[v0] Selected depots:", selectedDepots)
+    console.log("[v0] Selected customers:", selectedCustomers)
 
-  async function handleOptimize() {
-    // Koordinat kontrolu
-    const missingCoords = checkMissingCoordinates()
+    if (selectedDepots.length === 0) {
+      toast.error("Lutfen en az bir depo secin")
+      return
+    }
+
+    if (selectedCustomers.length === 0) {
+      toast.error("Lutfen en az bir musteri secin")
+      return
+    }
+
+    // Check missing coordinates
+    const missingCoords = customers
+      .filter((c) => selectedCustomers.includes(c.id))
+      .filter((c) => !c.lat || !c.lng || c.lat === 0 || c.lng === 0)
+
     if (missingCoords.length > 0) {
       setMissingCoordinatesCustomers(missingCoords)
       setShowMissingCoordinatesDialog(true)
+      toast.error(`${missingCoords.length} musteri icin koordinat bilgisi eksik`)
       return
     }
 
     setOptimizing(true)
-    setProgress(0)
-    setError(null)
-
-    const selectedDepotsList = depots.filter((d) => selectedDepots.includes(d.id))
-    const availableVehicles = vehicles.filter((v) => v.status === "available")
-
-    // Progress simulasyonu
-    const progressInterval = setInterval(() => {
-      setProgress((p) => Math.min(p + 10, 90))
-    }, 500)
+    setOptimizeError(null)
 
     try {
-      const apiEndpoint = algorithm === "ortools" ? "/api/optimize-ortools" : "/api/optimize"
+      const apiEndpoint = "/api/optimize"
+      console.log("[v0] Calling API:", apiEndpoint)
 
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          depots: selectedDepotsList,
-          vehicles: availableVehicles,
-          customers,
+          depots: selectedDepots.map((id) => depots.find((d) => d.id === id)),
+          vehicles: vehicles.filter((v) => v.status === "available"),
+          customers: selectedCustomers.map((id) => customers.find((c) => c.id === id)),
           options: {
             fuelPrice,
             maxRouteDistance,
@@ -208,8 +217,8 @@ export function OptimizationPanel() {
 
       // Save optimized routes to localStorage for Map page
       const mockRoutes: MockRoute[] = data.routes.map((route: any, index: number) => {
-        const depot = selectedDepotsList.find((d) => d.id === route.depotId)
-        const vehicle = availableVehicles.find((v) => v.id === route.vehicleId)
+        const depot = depots.find((d) => d.id === route.depotId)
+        const vehicle = vehicles.find((v) => v.id === route.vehicleId)
 
         const totalDistanceValue =
           typeof route.totalDistance !== "undefined"
@@ -280,7 +289,7 @@ export function OptimizationPanel() {
       saveOptimizedRoutes(mockRoutes, summaryData, data.provider || "openrouteservice")
     } catch (err) {
       clearInterval(progressInterval)
-      setError(err instanceof Error ? err.message : "Bilinmeyen hata")
+      setOptimizeError(err instanceof Error ? err.message : "Bilinmeyen hata")
     } finally {
       setOptimizing(false)
     }
@@ -290,7 +299,11 @@ export function OptimizationPanel() {
   const availableVehicles = vehicles.filter((v) => v.status === "available")
   const totalDemand = customers.reduce((sum, c) => sum + (c.demand_pallet || c.demand_pallets || 0), 0)
   const totalCapacity = availableVehicles.reduce((sum, v) => sum + v.capacity_pallet, 0)
-  const missingCoords = checkMissingCoordinates()
+  const missingCoords = customers.filter((c) => !c.lat || !c.lng || c.lat === 0 || c.lng === 0)
+
+  const progressInterval = setInterval(() => {
+    setProgress((p) => Math.min(p + 10, 90))
+  }, 500)
 
   if (loading) {
     return (
@@ -405,6 +418,30 @@ export function OptimizationPanel() {
                 </Select>
               </div>
 
+              {/* Customer Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Musteri Secimi</Label>
+                <Select
+                  value={selectedCustomers.length === customers.length ? "all" : selectedCustomers[0]}
+                  onValueChange={(v) => {
+                    if (v === "all") setSelectedCustomers(customers.map((c) => c.id))
+                    else setSelectedCustomers([v])
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Musteri sec" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tum Musteriler</SelectItem>
+                    {customers.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Fuel Price */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Yakit Fiyati (TL/L)</Label>
@@ -501,7 +538,7 @@ export function OptimizationPanel() {
                   <MapPin className="h-4 w-4" /> Bekleyen Teslimat
                 </span>
                 <Badge variant="outline">
-                  {customers.length} teslimat
+                  {selectedCustomers.length} teslimat
                   {missingCoords.length > 0 && (
                     <span className="ml-1 text-amber-500">({missingCoords.length} koordinatsiz)</span>
                   )}
@@ -561,10 +598,10 @@ export function OptimizationPanel() {
 
         {/* Right Panel - Results */}
         <div className="lg:col-span-2">
-          {error ? (
+          {optimizeError ? (
             <Alert className="border-red-500/50 bg-red-500/10">
               <AlertTriangle className="h-4 w-4 text-red-500" />
-              <AlertDescription className="text-red-600 dark:text-red-400">{error}</AlertDescription>
+              <AlertDescription className="text-red-600 dark:text-red-400">{optimizeError}</AlertDescription>
             </Alert>
           ) : result ? (
             <OptimizationResults result={result} depots={depots} />
