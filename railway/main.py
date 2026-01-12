@@ -33,7 +33,7 @@ class Customer(BaseModel):
     business_type: str
     service_duration: int
     time_constraints: Optional[str] = None
-    required_vehicle_types: Optional<br/>List[int] = None
+    required_vehicle_types: Optional[List[int]] = None
 
 class Vehicle(BaseModel):
     id: str
