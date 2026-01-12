@@ -262,7 +262,6 @@ async function optimizeWithORS(
           const fixedCost = vehicle?.fixed_daily_cost || 500
           const tollCost = tollCalculation.totalTollCost
           const totalCost = fuelCost + distanceCost + fixedCost + tollCost
-
           const vehicleCapacity = vehicle?.capacity_pallet || vehicle?.capacity_pallets || 12
           const totalLoad = stops.reduce((sum, s) => sum + s.demand, 0)
 
@@ -350,13 +349,18 @@ async function optimizeWithORTools(
     fuelPricePerLiter: number
     maxRouteDistanceKm?: number
     maxRouteTimeMin?: number
+    vehicleCapacityUtilization?: number
   },
 ) {
-  if (!RAILWAY_API_URL) {
-    throw new Error("RAILWAY_API_URL environment variable is not set")
-  }
+  console.log("[v0] OR-Tools: Starting optimization")
+  console.log("[v0] OR-Tools: RAILWAY_API_URL =", RAILWAY_API_URL)
+  console.log("[v0] OR-Tools: Customers =", customers.length)
+  console.log("[v0] OR-Tools: Vehicles =", vehicles.length)
 
-  console.log("[v0] Calling Railway OR-Tools API...")
+  if (!RAILWAY_API_URL) {
+    console.log("[v0] OR-Tools: RAILWAY_API_URL not configured, skipping")
+    throw new Error("Railway API URL not configured")
+  }
 
   // Railway formatına çevir
   const railwayCustomers = customers.map((c) => ({
@@ -388,6 +392,16 @@ async function optimizeWithORTools(
     },
   }
 
+  console.log("[v0] OR-Tools: Sending request to Railway...")
+  console.log(
+    "[v0] OR-Tools: Request body:",
+    JSON.stringify({
+      customers: railwayCustomers.length,
+      vehicles: railwayVehicles.length,
+      depot: railwayDepot.id,
+    }),
+  )
+
   const response = await fetch(`${RAILWAY_API_URL}/optimize`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -397,15 +411,21 @@ async function optimizeWithORTools(
       depot: railwayDepot,
       fuel_price: options.fuelPricePerLiter,
     }),
+  }).catch((err) => {
+    console.error("[v0] OR-Tools: Fetch failed:", err.message)
+    throw new Error(`Railway API connection failed: ${err.message}`)
   })
 
+  console.log("[v0] OR-Tools: Response status:", response.status)
+
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(`OR-Tools optimization failed: ${error.detail || response.statusText}`)
+    const errorText = await response.text()
+    console.error("[v0] OR-Tools: Error response:", errorText)
+    throw new Error(`OR-Tools optimization failed: ${response.status} ${errorText}`)
   }
 
   const result = await response.json()
-  console.log("[v0] OR-Tools result:", result.routes?.length || 0, "routes")
+  console.log("[v0] OR-Tools: Success! Routes:", result.routes?.length || 0)
 
   return result
 }
