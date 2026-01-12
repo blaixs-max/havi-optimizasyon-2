@@ -362,13 +362,25 @@ async function optimizeWithORTools(
     throw new Error("Railway API URL not configured")
   }
 
+  const validCustomers = customers.filter((c) => {
+    const hasValidCoords = c.lat && c.lng && c.lat !== 0 && c.lng !== 0
+    if (!hasValidCoords) {
+      console.warn(`[v0] Customer ${c.id} has invalid coordinates, skipping`)
+    }
+    return hasValidCoords
+  })
+
+  if (validCustomers.length === 0) {
+    throw new Error("No customers with valid coordinates")
+  }
+
   // Railway formatına çevir
-  const railwayCustomers = customers.map((c) => ({
+  const railwayCustomers = validCustomers.map((c) => ({
     id: c.id,
     name: c.name,
     location: {
-      lat: c.lat || 0,
-      lng: c.lng || 0,
+      lat: c.lat,
+      lng: c.lng,
     },
     demand: c.demand_pallet || c.demand_pallets || 0,
     business: c.business_type || "default",
@@ -651,17 +663,6 @@ export async function POST(request: Request) {
 
     if (!customers || !Array.isArray(customers) || customers.length === 0) {
       return NextResponse.json({ error: "En az bir müşteri gerekli" }, { status: 400 })
-    }
-
-    const missingCoords = customers.filter((c) => !c.lat || !c.lng || c.lat === 0 || c.lng === 0)
-    if (missingCoords.length > 0) {
-      return NextResponse.json(
-        {
-          error: `${missingCoords.length} müşteri için koordinat bilgisi eksik`,
-          missingCustomers: missingCoords.map((c) => ({ id: c.id, name: c.name })),
-        },
-        { status: 400 },
-      )
     }
 
     const optimizationOptions = {

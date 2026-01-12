@@ -248,24 +248,6 @@ export const mockVehicles: Vehicle[] = [
 ]
 
 export const mockCustomers: Customer[] = [
-  {
-    id: "c-0",
-    name: "Test Musteri (Koordinatsiz)",
-    address: "Kadikoy, Moda Cad. No:50",
-    city: "Istanbul",
-    lat: 0,
-    lng: 0,
-    demand_pallet: 3,
-    demand_pallets: 3,
-    demand_kg: 1500,
-    time_window_start: "09:00",
-    time_window_end: "17:00",
-    service_duration: 15,
-    required_vehicle_types: [],
-    priority: 4,
-    status: "pending",
-    assigned_depot_id: "depot-1",
-  },
   // İstanbul Müşterileri
   {
     id: "c-1",
@@ -303,6 +285,7 @@ export const mockCustomers: Customer[] = [
     required_vehicle_types: ["tir"],
     priority: 5,
     status: "pending",
+    notes: "Acil teslimat",
     assigned_depot_id: "depot-1",
   },
   {
@@ -321,7 +304,7 @@ export const mockCustomers: Customer[] = [
     service_duration: 45,
     required_vehicle_types: ["tir"],
     priority: 3,
-    status: "pending",
+    status: "assigned",
     assigned_depot_id: "depot-1",
   },
   {
@@ -359,7 +342,7 @@ export const mockCustomers: Customer[] = [
     service_duration: 40,
     required_vehicle_types: ["tir"],
     priority: 5,
-    status: "pending",
+    status: "in_transit",
     assigned_depot_id: "depot-1",
   },
   {
@@ -437,6 +420,7 @@ export const mockCustomers: Customer[] = [
     required_vehicle_types: [],
     priority: 5,
     status: "pending",
+    notes: "Randevulu teslimat",
     assigned_depot_id: "depot-2",
   },
   {
