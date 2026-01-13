@@ -524,13 +524,11 @@ async function optimizeWithRailway(
     const customerMap = new Map(customers.map((c) => [c.id, c]))
     const depotMap = new Map(selectedDepots.map((d) => [d.id, d]))
 
-    const formattedRoutes = (railwayResult.routes || []).map((route: any) => ({
-      vehicleId: route.vehicle_id || route.vehicleId,
-      vehicleName: vehicleMap.get(route.vehicle_id || route.vehicleId)?.name || "Bilinmeyen Araç",
-      vehicleType: vehicleMap.get(route.vehicle_id || route.vehicleId)?.type || "truck",
-      depotId: route.depot_id || route.depotId,
-      depotName: depotMap.get(route.depot_id || route.depotId)?.name || "Depo",
-      stops: (route.stops || []).map((stop: any) => {
+    const formattedRoutes = (railwayResult.routes || []).map((route: any) => {
+      const vehicle = vehicleMap.get(route.vehicle_id || route.vehicleId)
+      const vehicleName = vehicle?.plate || vehicle?.name || `Araç ${route.vehicle_id || route.vehicleId}`
+
+      const stopsData = (route.stops || []).map((stop: any) => {
         const customerId = stop.customer_id || stop.customerId
         const customer = customerMap.get(customerId)
 
@@ -538,21 +536,37 @@ async function optimizeWithRailway(
           customerId: customerId,
           customerName: customer?.name || stop.customer_name || `Müşteri ${customerId}`,
           location: stop.location || { lat: stop.lat, lng: stop.lng },
-          demand: stop.demand || stop.demand_pallets || 0,
+          demand: stop.demand || stop.demand_pallets || customer?.demand_pallet || customer?.demand_pallets || 0,
           serviceTime: stop.service_time || 0,
         }
-      }),
-      totalDistance: route.total_distance_km || route.distance_km || route.totalDistance || 0,
-      totalDuration:
-        route.duration_minutes || route.total_duration_min || route.duration_min || route.totalDuration || 0,
-      fuelCost: route.fuel_cost || route.fuelCost || 0,
-      fixedCost: route.fixed_cost || route.fixedCost || 0,
-      distanceCost: route.distance_cost || route.distanceCost || 0,
-      tollCost: route.toll_cost || route.tollCost || 0,
-      totalCost: route.total_cost || route.totalCost || 0,
-      totalLoad: route.total_load || route.totalLoad || 0,
-      capacityUtilization: route.capacity_utilization || route.capacityUtilization || 0,
-    }))
+      })
+
+      const calculatedLoad = stopsData.reduce((sum, s) => sum + (s.demand || 0), 0)
+      const totalLoad = route.total_load || route.totalLoad || calculatedLoad
+
+      return {
+        vehicleId: route.vehicle_id || route.vehicleId,
+        vehicleName: vehicleName,
+        vehiclePlate: vehicle?.plate || vehicleName,
+        vehicleType: vehicle?.vehicle_type || vehicle?.type || "truck",
+        depotId: route.depot_id || route.depotId,
+        depotName: depotMap.get(route.depot_id || route.depotId)?.name || "Depo",
+        stops: stopsData,
+        totalDistance: route.total_distance_km || route.distance_km || route.totalDistance || 0,
+        totalDuration:
+          route.duration_minutes || route.total_duration_min || route.duration_min || route.totalDuration || 0,
+        fuelCost: route.fuel_cost || route.fuelCost || 0,
+        fixedCost: route.fixed_cost || route.fixedCost || 0,
+        distanceCost: route.distance_cost || route.distanceCost || 0,
+        tollCost: route.toll_cost || route.tollCost || 0,
+        totalCost: route.total_cost || route.totalCost || 0,
+        totalLoad: totalLoad,
+        capacityUtilization:
+          route.capacity_utilization ||
+          route.capacityUtilization ||
+          (vehicle?.capacity_pallet ? Math.round((totalLoad / vehicle.capacity_pallet) * 100) : 0),
+      }
+    })
 
     console.log("[v0] Formatted routes count:", formattedRoutes.length)
     if (formattedRoutes.length > 0) {
