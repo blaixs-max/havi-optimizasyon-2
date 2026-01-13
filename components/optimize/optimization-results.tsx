@@ -290,7 +290,7 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Toplam Maliyet</p>
-                <p className="text-xl font-bold">{summary.totalCost.toLocaleString("tr-TR")} TL</p>
+                <p className="text-xl font-bold">{(summary.totalCost || 0).toLocaleString("tr-TR")} TL</p>
               </div>
             </div>
           </CardContent>
@@ -313,22 +313,22 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
             <div className="text-center p-3 bg-muted rounded-lg">
               <Fuel className="h-4 w-4 mx-auto mb-1 text-orange-500" />
               <p className="text-xs text-muted-foreground">Yakit</p>
-              <p className="font-semibold text-sm">{summary.fuelCost?.toLocaleString("tr-TR") || 0} TL</p>
+              <p className="font-semibold text-sm">{(summary.fuelCost || 0).toLocaleString("tr-TR")} TL</p>
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">
               <Route className="h-4 w-4 mx-auto mb-1 text-blue-500" />
               <p className="text-xs text-muted-foreground">Mesafe</p>
-              <p className="font-semibold text-sm">{summary.distanceCost?.toLocaleString("tr-TR") || 0} TL</p>
+              <p className="font-semibold text-sm">{(summary.distanceCost || 0).toLocaleString("tr-TR")} TL</p>
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">
               <Truck className="h-4 w-4 mx-auto mb-1 text-green-500" />
               <p className="text-xs text-muted-foreground">Sabit</p>
-              <p className="font-semibold text-sm">{summary.fixedCost?.toLocaleString("tr-TR") || 0} TL</p>
+              <p className="font-semibold text-sm">{(summary.fixedCost || 0).toLocaleString("tr-TR")} TL</p>
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">
               <Landmark className="h-4 w-4 mx-auto mb-1 text-purple-500" />
               <p className="text-xs text-muted-foreground">Gecis</p>
-              <p className="font-semibold text-sm">{summary.tollCost?.toLocaleString("tr-TR") || 0} TL</p>
+              <p className="font-semibold text-sm">{(summary.tollCost || 0).toLocaleString("tr-TR")} TL</p>
             </div>
           </div>
 
@@ -463,7 +463,7 @@ function RouteCard({ route, index, expanded, onToggle, depots }: RouteCardProps)
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="font-semibold text-sm">{totalCost.toLocaleString("tr-TR")} TL</span>
+            <span className="font-semibold text-sm">{(totalCost || 0).toLocaleString("tr-TR")} TL</span>
             {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </div>
         </div>
@@ -475,19 +475,19 @@ function RouteCard({ route, index, expanded, onToggle, depots }: RouteCardProps)
             <div className="grid grid-cols-4 gap-2 text-xs">
               <div className="text-center">
                 <p className="text-muted-foreground">Yakit</p>
-                <p className="font-medium">{fuelCost.toLocaleString("tr-TR")} TL</p>
+                <p className="font-medium">{(fuelCost || 0).toLocaleString("tr-TR")} TL</p>
               </div>
               <div className="text-center">
                 <p className="text-muted-foreground">Mesafe</p>
-                <p className="font-medium">{distanceCost.toLocaleString("tr-TR")} TL</p>
+                <p className="font-medium">{(distanceCost || 0).toLocaleString("tr-TR")} TL</p>
               </div>
               <div className="text-center">
                 <p className="text-muted-foreground">Sabit</p>
-                <p className="font-medium">{fixedCost.toLocaleString("tr-TR")} TL</p>
+                <p className="font-medium">{(fixedCost || 0).toLocaleString("tr-TR")} TL</p>
               </div>
               <div className="text-center">
                 <p className="text-muted-foreground">Gecis</p>
-                <p className="font-medium">{tollCost.toLocaleString("tr-TR")} TL</p>
+                <p className="font-medium">{(tollCost || 0).toLocaleString("tr-TR")} TL</p>
               </div>
             </div>
           </div>
@@ -504,7 +504,9 @@ function RouteCard({ route, index, expanded, onToggle, depots }: RouteCardProps)
                     <span className="text-purple-700">
                       {crossing.type === "Kopru" ? "🌉" : "🚇"} {crossing.name}
                     </span>
-                    <span className="font-medium text-purple-800">{crossing.cost?.toLocaleString("tr-TR")} TL</span>
+                    <span className="font-medium text-purple-800">
+                      {(crossing.cost || 0).toLocaleString("tr-TR")} TL
+                    </span>
                   </div>
                 ))}
               </div>
@@ -526,7 +528,7 @@ function RouteCard({ route, index, expanded, onToggle, depots }: RouteCardProps)
                         ({hw.entry} → {hw.exit}, {hw.distanceKm} km)
                       </span>
                     </div>
-                    <span className="font-medium text-blue-800">{hw.cost?.toLocaleString("tr-TR")} TL</span>
+                    <span className="font-medium text-blue-800">{(hw.cost || 0).toLocaleString("tr-TR")} TL</span>
                   </div>
                 ))}
               </div>
@@ -573,7 +575,7 @@ function RouteCard({ route, index, expanded, onToggle, depots }: RouteCardProps)
 
           <div className="mt-3 pt-3 border-t flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Rota Toplam Maliyeti</span>
-            <span className="font-bold text-sm">{totalCost.toLocaleString("tr-TR")} TL</span>
+            <span className="font-bold text-sm">{(totalCost || 0).toLocaleString("tr-TR")} TL</span>
           </div>
         </div>
       )}
