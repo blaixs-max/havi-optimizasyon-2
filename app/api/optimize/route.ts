@@ -473,6 +473,11 @@ async function optimizeWithRailway(
     console.log("[v0] Railway optimization successful")
     console.log("[v0] Routes found:", railwayResult.routes?.length)
 
+    if (!railwayResult.routes || !Array.isArray(railwayResult.routes)) {
+      console.error("[v0] Railway returned invalid routes:", railwayResult)
+      throw new Error("Railway API returned invalid response: routes missing or not an array")
+    }
+
     // Geometry and cost calculation for each route
     const client = new ORSClient(ORS_API_KEY!)
     for (const route of railwayResult.routes) {
