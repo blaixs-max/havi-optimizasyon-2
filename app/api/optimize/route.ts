@@ -543,7 +543,8 @@ async function optimizeWithRailway(
         }
       }),
       totalDistance: route.total_distance_km || route.distance_km || route.totalDistance || 0,
-      totalDuration: route.total_duration_min || route.duration_min || route.totalDuration || 0,
+      totalDuration:
+        route.duration_minutes || route.total_duration_min || route.duration_min || route.totalDuration || 0,
       fuelCost: route.fuel_cost || route.fuelCost || 0,
       fixedCost: route.fixed_cost || route.fixedCost || 0,
       distanceCost: route.distance_cost || route.distanceCost || 0,
