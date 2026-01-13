@@ -65,14 +65,29 @@ def optimize_routes(customers: List[dict], vehicles: List[dict], depot: dict, fu
     """OR-Tools ile rota optimizasyonu"""
     
     print(f"[OR-Tools] Starting optimization with {len(customers)} customers, {len(vehicles)} vehicles")
-    print(f"[OR-Tools] Depot location: {depot['location']}")
     
     # Validate depot coordinates
     depot_lat = depot["location"]["lat"]
     depot_lng = depot["location"]["lng"]
-    if not (-90 <= depot_lat <= 90) or not (-180 <= depot_lng <= 180):
-        raise Exception(f"Invalid depot coordinates: lat={depot_lat}, lng={depot_lng}")
     
+    if not (-90 <= depot_lat <= 90) or not (-180 <= depot_lng <= 180):
+        raise Exception(f"Invalid depot coordinates: ({depot_lat}, {depot_lng})")
+    
+    print(f"[OR-Tools] Depot location: ({depot_lat}, {depot_lng})")
+    
+    # Validate customer coordinates
+    for idx, customer in enumerate(customers):
+        lat = customer["location"]["lat"]
+        lng = customer["location"]["lng"]
+        
+        if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+            raise Exception(f"Invalid customer {idx} coordinates: ({lat}, {lng})")
+        
+        # Check if customer is too close to depot (causes routing issues)
+        dist_to_depot = haversine_distance(depot_lat, depot_lng, lat, lng)
+        if dist_to_depot < 0.1:  # Less than 100 meters
+            print(f"[OR-Tools] WARNING: Customer {idx} is very close to depot ({dist_to_depot:.2f} km)")
+
     # Validate customers
     valid_customers = []
     for i, customer in enumerate(customers):
@@ -134,12 +149,18 @@ def optimize_routes(customers: List[dict], vehicles: List[dict], depot: dict, fu
                     locations[j][0], locations[j][1]
                 )
                 if math.isnan(dist) or math.isinf(dist) or dist < 0:
-                    print(f"[OR-Tools] ERROR: Invalid distance between {i} and {j}: {dist}")
+                    print(f"[OR-Tools] ERROR: Invalid distance between {i} and {j}")
+                    print(f"[OR-Tools] Location {i}: {locations[i]}")
+                    print(f"[OR-Tools] Location {j}: {locations[j]}")
                     raise Exception(f"Invalid distance calculated: {dist}")
+                
+                # Minimum distance 100m to avoid routing issues
+                dist = max(dist, 0.1)
                 row.append(int(dist * 1000))  # Metre cinsinden
         distance_matrix.append(row)
     
     print(f"[OR-Tools] Distance matrix built successfully")
+    print(f"[OR-Tools] Sample distances (km): 0->1: {distance_matrix[0][1]/1000:.2f}, 1->2: {distance_matrix[1][2]/1000:.2f}")
     
     # Zaman matrisi (dakika) - 50 km/h ortalama hız
     time_matrix = []
