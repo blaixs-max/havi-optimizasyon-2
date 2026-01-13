@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { mockCustomers, mockDepots } from "@/lib/mock-data"
 import { getCustomerCoordinates } from "@/lib/customer-store"
 import type { Customer, Depot } from "@/lib/types"
@@ -26,7 +25,6 @@ export function CustomersTable() {
   const [filterDepot, setFilterDepot] = useState<string>("all")
   const [filterCity, setFilterCity] = useState<string>("all")
   const [page, setPage] = useState(0)
-  const [isDemo, setIsDemo] = useState(false)
   const pageSize = 20
 
   useEffect(() => {
@@ -42,9 +40,26 @@ export function CustomersTable() {
   }, [])
 
   async function fetchData() {
-    const supabase = createClient()
+    try {
+      const [customersRes, depotsRes] = await Promise.all([fetch("/api/customers"), fetch("/api/depots")])
 
-    if (!supabase) {
+      const [customersData, depotsData] = await Promise.all([customersRes.json(), depotsRes.json()])
+
+      const savedCoords = getCustomerCoordinates()
+      const customersWithDepot = customersData.map((c: Customer) => {
+        const saved = savedCoords[c.id]
+        return {
+          ...c,
+          lat: saved?.lat ?? c.lat,
+          lng: saved?.lng ?? c.lng,
+          assigned_depot: depotsData.find((d: Depot) => d.id === c.assigned_depot_id),
+        }
+      })
+
+      setCustomers(customersWithDepot)
+      setDepots(depotsData)
+    } catch (error) {
+      console.error("Failed to fetch data:", error)
       const savedCoords = getCustomerCoordinates()
       const customersWithDepot = mockCustomers.map((c) => {
         const saved = savedCoords[c.id]
@@ -57,51 +72,20 @@ export function CustomersTable() {
       })
       setCustomers(customersWithDepot)
       setDepots(mockDepots)
-      setIsDemo(true)
+    } finally {
       setLoading(false)
-      return
     }
-
-    const [customersRes, depotsRes] = await Promise.all([
-      supabase.from("customers").select("*, assigned_depot:depots(*)").order("name"),
-      supabase.from("depots").select("*"),
-    ])
-
-    if (customersRes.data) {
-      setCustomers(customersRes.data as (Customer & { assigned_depot: Depot | null })[])
-    } else {
-      const savedCoords = getCustomerCoordinates()
-      const customersWithDepot = mockCustomers.map((c) => {
-        const saved = savedCoords[c.id]
-        return {
-          ...c,
-          lat: saved?.lat ?? c.lat,
-          lng: saved?.lng ?? c.lng,
-          assigned_depot: mockDepots.find((d) => d.id === c.assigned_depot_id),
-        }
-      })
-      setCustomers(customersWithDepot)
-      setIsDemo(true)
-    }
-
-    if (depotsRes.data) {
-      setDepots(depotsRes.data)
-    } else {
-      setDepots(mockDepots)
-    }
-    setLoading(false)
   }
 
   async function deleteCustomer(id: string) {
-    if (isDemo) {
-      alert("Demo modunda silme işlemi yapılamaz")
-      return
-    }
     if (!confirm("Bu müşteriyi silmek istediğinize emin misiniz?")) return
-    const supabase = createClient()
-    if (!supabase) return
-    await supabase.from("customers").delete().eq("id", id)
-    fetchData()
+
+    try {
+      await fetch(`/api/customers?id=${id}`, { method: "DELETE" })
+      fetchData()
+    } catch (error) {
+      console.error("Failed to delete customer:", error)
+    }
   }
 
   const cities = [...new Set(customers.map((c) => c.city))]
@@ -125,24 +109,6 @@ export function CustomersTable() {
 
   return (
     <>
-      {isDemo && (
-        <Alert className="mt-4 border-amber-500/50 bg-amber-500/10">
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
-          <AlertDescription className="text-amber-500 text-xs sm:text-sm">
-            Demo modu aktif. Supabase bağlantısı için environment variables ekleyin.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {missingCoordsCount > 0 && (
-        <Alert className="mt-4 border-orange-500/50 bg-orange-500/10">
-          <MapPin className="h-4 w-4 text-orange-500" />
-          <AlertDescription className="text-orange-600 dark:text-orange-400 text-xs sm:text-sm">
-            <strong>{missingCoordsCount} müşteri</strong> için koordinat bilgisi eksik.
-          </AlertDescription>
-        </Alert>
-      )}
-
       {/* Filters - Mobil responsive */}
       <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
         <div className="relative flex-1">
@@ -441,6 +407,15 @@ export function CustomersTable() {
           </div>
         )}
       </div>
+
+      {missingCoordsCount > 0 && (
+        <Alert className="mt-4 border-orange-500/50 bg-orange-500/10">
+          <MapPin className="h-4 w-4 text-orange-500" />
+          <AlertDescription className="text-orange-600 dark:text-orange-400 text-xs sm:text-sm">
+            <strong>{missingCoordsCount} müşteri</strong> için koordinat bilgisi eksik.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <CustomerFormDialog
         open={!!editingCustomer}

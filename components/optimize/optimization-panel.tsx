@@ -27,14 +27,11 @@ import {
   Building,
   Zap,
   Target,
-  Info,
 } from "lucide-react"
 import type { Depot, Vehicle, Customer, OptimizationResult } from "@/lib/types"
-import { mockDepots, mockVehicles, mockCustomers } from "@/lib/mock-data"
-import { createClient } from "@/lib/supabase/client"
 import { OptimizationResults } from "./optimization-results"
 import { saveOptimizedRoutes } from "@/lib/route-store"
-import { saveCustomerCoordinates, getCustomerCoordinates } from "@/lib/customer-store"
+import { saveCustomerCoordinates } from "@/lib/customer-store"
 import { MissingCoordinatesDialog } from "@/components/customers/missing-coordinates-dialog"
 import type { MockRoute } from "@/lib/mock-data"
 
@@ -66,91 +63,59 @@ export function OptimizationPanel() {
   }, [])
 
   async function fetchData() {
-    const supabase = createClient()
+    try {
+      const [depotsRes, vehiclesRes, customersRes, fuelRes] = await Promise.all([
+        fetch("/api/depots"),
+        fetch("/api/vehicles"),
+        fetch("/api/customers"),
+        fetch("/api/fuel-price"),
+      ])
 
-    if (!supabase) {
-      const savedCoords = getCustomerCoordinates()
-      const customersWithCoords = mockCustomers.map((c) => {
-        const saved = savedCoords[c.id]
-        if (saved) {
-          return { ...c, lat: saved.lat, lng: saved.lng }
-        }
-        return c
+      if (depotsRes.ok) {
+        const depotsData = await depotsRes.json()
+        setDepots(depotsData)
+        setSelectedDepots(depotsData.map((d: Depot) => d.id))
+        setIsDemo(false)
+      }
+
+      if (vehiclesRes.ok) {
+        const vehiclesData = await vehiclesRes.json()
+        setVehicles(vehiclesData)
+      }
+
+      if (customersRes.ok) {
+        const customersData = await customersRes.json()
+        setCustomers(customersData)
+      }
+
+      if (fuelRes.ok) {
+        const fuelData = await fuelRes.json()
+        setFuelPrice(fuelData.price || 47.5)
+      }
+    } catch (error) {
+      console.error("[v0] Failed to fetch data:", error)
+      toast({
+        title: "Veri Yükleme Hatası",
+        description: "Veriler yüklenemedi. Lütfen sayfayı yenileyin.",
+        variant: "destructive",
       })
-
-      setDepots(mockDepots)
-      setVehicles(mockVehicles)
-      setCustomers(customersWithCoords)
-      setSelectedDepots(mockDepots.map((d) => d.id))
-      setIsDemo(true)
+    } finally {
       setLoading(false)
-      return
     }
-
-    const [depotsRes, vehiclesRes, customersRes] = await Promise.all([
-      supabase.from("depots").select("*"),
-      supabase.from("vehicles").select("*"),
-      supabase.from("customers").select("*"),
-    ])
-
-    if (depotsRes.data) setDepots(depotsRes.data)
-    else {
-      setDepots(mockDepots)
-      setIsDemo(true)
-    }
-
-    if (vehiclesRes.data) setVehicles(vehiclesRes.data)
-    else setVehicles(mockVehicles)
-
-    if (customersRes.data) setCustomers(customersRes.data)
-    else {
-      const savedCoords = getCustomerCoordinates()
-      const customersWithCoords = mockCustomers.map((c) => {
-        const saved = savedCoords[c.id]
-        if (saved) {
-          return { ...c, lat: saved.lat, lng: saved.lng }
-        }
-        return c
-      })
-      setCustomers(customersWithCoords)
-    }
-
-    if (depotsRes.data) {
-      setSelectedDepots(depotsRes.data.map((d: Depot) => d.id))
-    } else {
-      setSelectedDepots(mockDepots.map((d) => d.id))
-    }
-
-    setLoading(false)
   }
 
   async function handleSaveCoordinates(updates: { id: string; lat: number; lng: number }[]) {
-    const supabase = createClient()
-
-    // Save to localStorage for persistence
     saveCustomerCoordinates(updates)
 
-    if (!supabase || isDemo) {
-      // Demo modunda local state'i guncelle
-      setCustomers((prev) =>
-        prev.map((c) => {
-          const update = updates.find((u) => u.id === c.id)
-          if (update) {
-            return { ...c, lat: update.lat, lng: update.lng }
-          }
-          return c
-        }),
-      )
-      return
-    }
-
-    // Supabase'de guncelle
-    for (const update of updates) {
-      await supabase.from("customers").update({ lat: update.lat, lng: update.lng }).eq("id", update.id)
-    }
-
-    // Verileri yeniden yukle
-    fetchData()
+    setCustomers((prev) =>
+      prev.map((c) => {
+        const update = updates.find((u) => u.id === c.id)
+        if (update) {
+          return { ...c, lat: update.lat, lng: update.lng }
+        }
+        return c
+      }),
+    )
   }
 
   async function handleOptimize() {
@@ -387,16 +352,6 @@ export function OptimizationPanel() {
 
   return (
     <div className="space-y-6">
-      {isDemo && (
-        <Alert className="border-blue-500/50 bg-blue-500/10">
-          <Info className="h-4 w-4 text-blue-500" />
-          <AlertDescription className="text-blue-600 dark:text-blue-400">
-            Demo modu aktif - Gerçek veriler için Supabase bağlantısı yapın. Parametreleri ayarlayın ve "Rotaları
-            Optimize Et" butonuna tıklayın
-          </AlertDescription>
-        </Alert>
-      )}
-
       {/* Missing coordinates warning */}
       {missingCoords.length > 0 && (
         <Alert className="border-amber-500/50 bg-amber-500/10">

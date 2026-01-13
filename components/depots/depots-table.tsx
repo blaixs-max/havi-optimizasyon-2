@@ -1,59 +1,48 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { mockDepots } from "@/lib/mock-data"
 import type { Depot } from "@/lib/types"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Pencil, Trash2, MapPin, AlertTriangle } from "lucide-react"
+import { MoreHorizontal, Pencil, Trash2, MapPin } from "lucide-react"
 import { DEPOT_COLORS } from "@/lib/constants"
 import { DepotFormDialog } from "./depot-form-dialog"
 import { Card } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export function DepotsTable() {
   const [depots, setDepots] = useState<Depot[]>([])
   const [loading, setLoading] = useState(true)
   const [editingDepot, setEditingDepot] = useState<Depot | null>(null)
-  const [isDemo, setIsDemo] = useState(false)
 
   useEffect(() => {
     fetchDepots()
   }, [])
 
   async function fetchDepots() {
-    const supabase = createClient()
-
-    if (!supabase) {
-      setDepots(mockDepots)
-      setIsDemo(true)
-      setLoading(false)
-      return
-    }
-
-    const { data } = await supabase.from("depots").select("*").order("city")
-    if (data) {
+    try {
+      const response = await fetch("/api/depots")
+      const data = await response.json()
       setDepots(data)
-    } else {
+    } catch (error) {
+      console.error("Failed to fetch depots:", error)
       setDepots(mockDepots)
-      setIsDemo(true)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function deleteDepot(id: string) {
-    if (isDemo) {
-      alert("Demo modunda silme işlemi yapılamaz")
-      return
-    }
     if (!confirm("Bu depoyu silmek istediğinize emin misiniz?")) return
-    const supabase = createClient()
-    if (!supabase) return
-    await supabase.from("depots").delete().eq("id", id)
-    fetchDepots()
+
+    try {
+      await fetch(`/api/depots?id=${id}`, { method: "DELETE" })
+      fetchDepots()
+    } catch (error) {
+      console.error("Failed to delete depot:", error)
+    }
   }
 
   if (loading) {
@@ -62,15 +51,6 @@ export function DepotsTable() {
 
   return (
     <>
-      {isDemo && (
-        <Alert className="mt-4 border-amber-500/50 bg-amber-500/10">
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
-          <AlertDescription className="text-amber-500">
-            Demo modu aktif. Supabase bağlantısı için environment variables ekleyin.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <Card className="mt-4">
         <Table>
           <TableHeader>

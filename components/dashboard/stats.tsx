@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Package, Truck, Route, TrendingUp, TrendingDown, Clock, MapPin } from "lucide-react"
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
+import { Package, Truck, Route, TrendingUp, TrendingDown, MapPin } from "lucide-react"
 import { getMockStats } from "@/lib/mock-data"
 import type { DashboardStats as StatsType } from "@/types/database"
 import { cn } from "@/lib/utils"
@@ -11,61 +10,39 @@ import { cn } from "@/lib/utils"
 export function DashboardStats() {
   const [stats, setStats] = useState<StatsType | null>(null)
   const [loading, setLoading] = useState(true)
-  const [usingMock, setUsingMock] = useState(false)
 
   useEffect(() => {
     async function fetchStats() {
-      if (!isSupabaseConfigured()) {
-        setStats(getMockStats())
-        setUsingMock(true)
-        setLoading(false)
-        return
-      }
-
-      const supabase = createClient()
-      if (!supabase) {
-        setStats(getMockStats())
-        setUsingMock(true)
-        setLoading(false)
-        return
-      }
-
       try {
-        const [
-          { count: totalDepots },
-          { count: totalVehicles },
-          { count: availableVehicles },
-          { count: totalCustomers },
-          { count: pendingCustomers },
-          { count: totalRoutes },
-          routesData,
-        ] = await Promise.all([
-          supabase.from("depots").select("*", { count: "exact", head: true }),
-          supabase.from("vehicles").select("*", { count: "exact", head: true }),
-          supabase.from("vehicles").select("*", { count: "exact", head: true }).eq("status", "available"),
-          supabase.from("customers").select("*", { count: "exact", head: true }),
-          supabase.from("customers").select("*", { count: "exact", head: true }).eq("status", "pending"),
-          supabase.from("routes").select("*", { count: "exact", head: true }),
-          supabase.from("routes").select("total_distance_km, total_cost"),
+        const [depotsRes, vehiclesRes, customersRes] = await Promise.all([
+          fetch("/api/depots"),
+          fetch("/api/vehicles"),
+          fetch("/api/customers"),
         ])
 
-        const totalDistance = routesData.data?.reduce((sum, r) => sum + (r.total_distance_km || 0), 0) || 0
-        const totalCost = routesData.data?.reduce((sum, r) => sum + (r.total_cost || 0), 0) || 0
+        const [depots, vehicles, customers] = await Promise.all([
+          depotsRes.json(),
+          vehiclesRes.json(),
+          customersRes.json(),
+        ])
+
+        const availableVehicles = vehicles.filter((v: any) => v.status === "available").length
+        const pendingCustomers = customers.filter((c: any) => c.status === "pending").length
 
         setStats({
-          totalDepots: totalDepots || 0,
-          totalVehicles: totalVehicles || 0,
-          availableVehicles: availableVehicles || 0,
-          totalCustomers: totalCustomers || 0,
-          pendingCustomers: pendingCustomers || 0,
-          totalRoutes: totalRoutes || 0,
+          totalDepots: depots.length || 0,
+          totalVehicles: vehicles.length || 0,
+          availableVehicles,
+          totalCustomers: customers.length || 0,
+          pendingCustomers,
+          totalRoutes: 0,
           todayRoutes: 0,
-          totalDistance,
-          totalCost,
+          totalDistance: 0,
+          totalCost: 0,
         })
       } catch (error) {
+        console.error("Failed to fetch stats:", error)
         setStats(getMockStats())
-        setUsingMock(true)
       } finally {
         setLoading(false)
       }
@@ -134,14 +111,6 @@ export function DashboardStats() {
 
   return (
     <div className="space-y-3">
-      {usingMock && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-          <Clock className="h-4 w-4 text-amber-600" />
-          <p className="text-sm text-amber-700 dark:text-amber-400">
-            Demo modu aktif - Gerçek veri için Supabase bağlantısını yapılandırın
-          </p>
-        </div>
-      )}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((stat) => {
           const Icon = stat.icon

@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useEffect, useState, useRef } from "react"
-import { createClient } from "@/lib/supabase/client"
 import type { Vehicle, Depot } from "@/types/database"
 import {
   Dialog,
@@ -106,32 +105,44 @@ export function VehicleFormDialog({ open, onOpenChange, vehicle, depots = [], on
     e.preventDefault()
     setLoading(true)
 
-    const supabase = createClient()
-    const data = {
-      plate: form.plate,
-      depot_id: form.depot_id,
-      vehicle_type: form.vehicle_type,
-      capacity_pallets: Number.parseInt(form.capacity_pallets),
-      capacity_kg: Number.parseFloat(form.capacity_kg),
-      capacity_m3: Number.parseFloat(form.capacity_m3), // Hacim kaydediliyor
-      cost_per_km: Number.parseFloat(form.cost_per_km),
-      fuel_consumption_per_100km: Number.parseFloat(form.fuel_consumption_per_100km),
-      fixed_daily_cost: Number.parseFloat(form.fixed_daily_cost),
-      avg_speed_kmh: Number.parseInt(form.avg_speed_kmh),
-      max_work_hours: Number.parseInt(form.max_work_hours), // Çalışma saati kaydediliyor
-      mandatory_break_min: Number.parseInt(form.mandatory_break_min), // Mola kaydediliyor
-      status: form.status,
-    }
+    try {
+      const data = {
+        plate: form.plate,
+        depot_id: form.depot_id,
+        vehicle_type: form.vehicle_type,
+        capacity_pallets: Number.parseInt(form.capacity_pallets),
+        capacity_kg: Number.parseFloat(form.capacity_kg),
+        capacity_m3: Number.parseFloat(form.capacity_m3),
+        cost_per_km: Number.parseFloat(form.cost_per_km),
+        fuel_consumption_per_100km: Number.parseFloat(form.fuel_consumption_per_100km),
+        fixed_daily_cost: Number.parseFloat(form.fixed_daily_cost),
+        avg_speed_kmh: Number.parseInt(form.avg_speed_kmh),
+        max_work_hours: Number.parseInt(form.max_work_hours),
+        mandatory_break_min: Number.parseInt(form.mandatory_break_min),
+        status: form.status,
+      }
 
-    if (vehicle) {
-      await supabase.from("vehicles").update(data).eq("id", vehicle.id)
-    } else {
-      await supabase.from("vehicles").insert(data)
-    }
+      if (vehicle) {
+        await fetch(`/api/vehicles?id=${vehicle.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
+      } else {
+        await fetch("/api/vehicles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
+      }
 
-    setLoading(false)
-    onOpenChange(false)
-    onSuccess?.()
+      onOpenChange(false)
+      onSuccess?.()
+    } catch (error) {
+      console.error("Failed to save vehicle:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

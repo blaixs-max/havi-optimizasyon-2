@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useEffect, useState, useRef } from "react"
-import { createClient } from "@/lib/supabase/client"
 import type { Customer, Depot } from "@/types/database"
 import {
   Dialog,
@@ -62,42 +61,47 @@ export function CustomerFormDialog({ open, onOpenChange, customer, depots = [], 
     e.preventDefault()
     setLoading(true)
 
-    const supabase = createClient()
+    try {
+      const data = {
+        name: form.name,
+        address: form.address,
+        city: form.city,
+        district: form.district || null,
+        lat: Number.parseFloat(form.lat),
+        lng: Number.parseFloat(form.lng),
+        demand_pallets: Number.parseInt(form.demand_pallets),
+        demand_kg: Number.parseFloat(form.demand_kg),
+        demand_m3: Number.parseFloat(form.demand_m3),
+        service_duration_min: Number.parseInt(form.service_duration_min),
+        time_window_start: form.time_window_start || null,
+        time_window_end: form.time_window_end || null,
+        required_vehicle_type: form.required_vehicle_type === "any" ? null : form.required_vehicle_type,
+        priority: Number.parseInt(form.priority),
+        assigned_depot_id: form.assigned_depot_id,
+        status: form.status,
+      }
 
-    if (!supabase) {
-      alert("Demo modunda kayıt yapılamaz")
+      if (customer) {
+        await fetch(`/api/customers?id=${customer.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
+      } else {
+        await fetch("/api/customers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
+      }
+
+      onOpenChange(false)
+      onSuccess?.()
+    } catch (error) {
+      console.error("Failed to save customer:", error)
+    } finally {
       setLoading(false)
-      return
     }
-
-    const data = {
-      name: form.name,
-      address: form.address,
-      city: form.city,
-      district: form.district || null,
-      lat: Number.parseFloat(form.lat),
-      lng: Number.parseFloat(form.lng),
-      demand_pallets: Number.parseInt(form.demand_pallets),
-      demand_kg: Number.parseFloat(form.demand_kg),
-      demand_m3: Number.parseFloat(form.demand_m3), // Hacim kaydediliyor
-      service_duration_min: Number.parseInt(form.service_duration_min), // Servis süresi kaydediliyor
-      time_window_start: form.time_window_start || null, // Zaman penceresi
-      time_window_end: form.time_window_end || null,
-      required_vehicle_type: form.required_vehicle_type, // Araç tipi kısıtı
-      priority: Number.parseInt(form.priority) as 1 | 2 | 3 | 4 | 5,
-      assigned_depot_id: form.assigned_depot_id || null,
-      status: form.status,
-    }
-
-    if (customer) {
-      await supabase.from("customers").update(data).eq("id", customer.id)
-    } else {
-      await supabase.from("customers").insert(data)
-    }
-
-    setLoading(false)
-    onOpenChange(false)
-    onSuccess?.()
   }
 
   return (

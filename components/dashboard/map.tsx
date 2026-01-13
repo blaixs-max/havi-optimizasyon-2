@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 import { mockDepots, mockCustomers } from "@/lib/mock-data"
 import { DEPOT_COLORS, MAP_CENTER, TILE_PROVIDERS } from "@/lib/constants"
 import type { Depot, Customer } from "@/lib/types"
@@ -28,35 +27,19 @@ export function DashboardMap() {
 
   useEffect(() => {
     async function fetchData() {
-      if (!isSupabaseConfigured()) {
-        setDepots(mockDepots)
-        setCustomers(mockCustomers)
-        setSelectedDepots(mockDepots.map((d) => d.id))
-        setLoading(false)
-        return
-      }
-
-      const supabase = createClient()
-      if (!supabase) {
-        setDepots(mockDepots)
-        setCustomers(mockCustomers)
-        setSelectedDepots(mockDepots.map((d) => d.id))
-        setLoading(false)
-        return
-      }
-
       try {
-        const [depotsRes, customersRes] = await Promise.all([
-          supabase.from("depots").select("*").eq("status", "active"),
-          supabase.from("customers").select("*"),
-        ])
+        const [depotsRes, customersRes] = await Promise.all([fetch("/api/depots"), fetch("/api/customers")])
 
-        if (depotsRes.data) {
-          setDepots(depotsRes.data)
-          setSelectedDepots(depotsRes.data.map((d) => d.id))
-        }
-        if (customersRes.data) setCustomers(customersRes.data)
+        const [depotsData, customersData] = await Promise.all([depotsRes.json(), customersRes.json()])
+
+        const activeDepots = depotsData.filter((d: Depot) => d.status === "active")
+        const pendingCustomers = customersData.filter((c: Customer) => c.status === "pending")
+
+        setDepots(activeDepots)
+        setCustomers(pendingCustomers)
+        setSelectedDepots(activeDepots.map((d: Depot) => d.id))
       } catch (error) {
+        console.error("Failed to fetch data:", error)
         setDepots(mockDepots)
         setCustomers(mockCustomers)
         setSelectedDepots(mockDepots.map((d) => d.id))

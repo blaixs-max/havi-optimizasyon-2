@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 import type { Depot } from "@/types/database"
 import {
   Dialog,
@@ -65,26 +64,38 @@ export function DepotFormDialog({ open, onOpenChange, depot, onSuccess }: DepotF
     e.preventDefault()
     setLoading(true)
 
-    const supabase = createClient()
-    const data = {
-      name: form.name,
-      city: form.city,
-      address: form.address,
-      lat: Number.parseFloat(form.lat),
-      lng: Number.parseFloat(form.lng),
-      capacity_pallets: Number.parseInt(form.capacity_pallets),
-      status: form.status,
-    }
+    try {
+      const data = {
+        name: form.name,
+        city: form.city,
+        address: form.address,
+        lat: Number.parseFloat(form.lat),
+        lng: Number.parseFloat(form.lng),
+        capacity_pallets: Number.parseInt(form.capacity_pallets),
+        status: form.status,
+      }
 
-    if (depot) {
-      await supabase.from("depots").update(data).eq("id", depot.id)
-    } else {
-      await supabase.from("depots").insert(data)
-    }
+      if (depot) {
+        await fetch(`/api/depots?id=${depot.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
+      } else {
+        await fetch("/api/depots", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
+      }
 
-    setLoading(false)
-    onOpenChange(false)
-    onSuccess?.()
+      onOpenChange(false)
+      onSuccess?.()
+    } catch (error) {
+      console.error("Failed to save depot:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

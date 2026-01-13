@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { mockVehicles, mockDepots } from "@/lib/mock-data"
 import type { Vehicle, Depot } from "@/lib/types"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -10,11 +9,10 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MoreHorizontal, Pencil, Trash2, Search, Fuel, AlertTriangle } from "lucide-react"
+import { MoreHorizontal, Pencil, Trash2, Search, Fuel } from "lucide-react"
 import { DEPOT_COLORS, VEHICLE_TYPES } from "@/lib/constants"
 import { VehicleFormDialog } from "./vehicle-form-dialog"
 import { Card } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   available: { label: "Müsait", variant: "default" },
@@ -32,61 +30,46 @@ export function VehiclesTable() {
   const [search, setSearch] = useState("")
   const [filterDepot, setFilterDepot] = useState<string>("all")
   const [filterType, setFilterType] = useState<string>("all")
-  const [isDemo, setIsDemo] = useState(false)
 
   useEffect(() => {
     fetchData()
   }, [])
 
   async function fetchData() {
-    const supabase = createClient()
+    try {
+      const [vehiclesRes, depotsRes] = await Promise.all([fetch("/api/vehicles"), fetch("/api/depots")])
 
-    if (!supabase) {
+      const [vehiclesData, depotsData] = await Promise.all([vehiclesRes.json(), depotsRes.json()])
+
+      const vehiclesWithDepot = vehiclesData.map((v: Vehicle) => ({
+        ...v,
+        depot: depotsData.find((d: Depot) => d.id === v.depot_id),
+      }))
+
+      setVehicles(vehiclesWithDepot)
+      setDepots(depotsData)
+    } catch (error) {
+      console.error("Failed to fetch data:", error)
       const vehiclesWithDepot = mockVehicles.map((v) => ({
         ...v,
         depot: mockDepots.find((d) => d.id === v.depot_id),
       }))
       setVehicles(vehiclesWithDepot)
       setDepots(mockDepots)
-      setIsDemo(true)
+    } finally {
       setLoading(false)
-      return
     }
-
-    const [vehiclesRes, depotsRes] = await Promise.all([
-      supabase.from("vehicles").select("*, depot:depots(*)").order("plate"),
-      supabase.from("depots").select("*"),
-    ])
-
-    if (vehiclesRes.data) {
-      setVehicles(vehiclesRes.data as (Vehicle & { depot: Depot })[])
-    } else {
-      const vehiclesWithDepot = mockVehicles.map((v) => ({
-        ...v,
-        depot: mockDepots.find((d) => d.id === v.depot_id),
-      }))
-      setVehicles(vehiclesWithDepot)
-      setIsDemo(true)
-    }
-
-    if (depotsRes.data) {
-      setDepots(depotsRes.data)
-    } else {
-      setDepots(mockDepots)
-    }
-    setLoading(false)
   }
 
   async function deleteVehicle(id: string) {
-    if (isDemo) {
-      alert("Demo modunda silme işlemi yapılamaz")
-      return
-    }
     if (!confirm("Bu aracı silmek istediğinize emin misiniz?")) return
-    const supabase = createClient()
-    if (!supabase) return
-    await supabase.from("vehicles").delete().eq("id", id)
-    fetchData()
+
+    try {
+      await fetch(`/api/vehicles?id=${id}`, { method: "DELETE" })
+      fetchData()
+    } catch (error) {
+      console.error("Failed to delete vehicle:", error)
+    }
   }
 
   const filteredVehicles = vehicles.filter((v) => {
@@ -102,15 +85,6 @@ export function VehiclesTable() {
 
   return (
     <>
-      {isDemo && (
-        <Alert className="mt-4 border-amber-500/50 bg-amber-500/10">
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
-          <AlertDescription className="text-amber-500">
-            Demo modu aktif. Supabase bağlantısı için environment variables ekleyin.
-          </AlertDescription>
-        </Alert>
-      )}
-
       {/* Filters */}
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[200px] max-w-sm">

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { FullscreenMap } from "@/components/map/fullscreen-map"
-import { supabase } from "@/lib/supabase/client"
 import { mockDepots, mockVehicles, mockCustomers, mockRoutes, type MockRoute } from "@/lib/mock-data"
 import {
   getOptimizedRoutes,
@@ -49,7 +48,6 @@ export default function MapPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [routes, setRoutes] = useState<MockRoute[]>([])
   const [loading, setLoading] = useState(true)
-  const [isDemo, setIsDemo] = useState(false)
   const [selectedRoute, setSelectedRoute] = useState<MockRoute | null>(null)
   const [showRoutePanel, setShowRoutePanel] = useState(true)
   const [optimizedData, setOptimizedData] = useState<StoredRouteData | null>(null)
@@ -88,29 +86,22 @@ export default function MapPage() {
   }
 
   const fetchData = async () => {
-    if (!supabase) {
-      setDepots(mockDepots as Depot[])
-      setVehicles(mockVehicles as Vehicle[])
-      setCustomers(mockCustomers as Customer[])
-      const stored = getOptimizedRoutes()
-      if (!stored || !stored.routes || stored.routes.length === 0) {
-        setRoutes(mockRoutes)
-      }
-      setIsDemo(true)
-      setLoading(false)
-      return
-    }
-
     try {
       const [depotsRes, vehiclesRes, customersRes] = await Promise.all([
-        supabase.from("depots").select("*").eq("status", "active"),
-        supabase.from("vehicles").select("*").eq("status", "active"),
-        supabase.from("customers").select("*").eq("status", "active"),
+        fetch("/api/depots"),
+        fetch("/api/vehicles"),
+        fetch("/api/customers"),
       ])
 
-      if (depotsRes.data) setDepots(depotsRes.data)
-      if (vehiclesRes.data) setVehicles(vehiclesRes.data)
-      if (customersRes.data) setCustomers(customersRes.data)
+      const [depotsData, vehiclesData, customersData] = await Promise.all([
+        depotsRes.json(),
+        vehiclesRes.json(),
+        customersRes.json(),
+      ])
+
+      setDepots(depotsData.filter((d: Depot) => d.status === "active"))
+      setVehicles(vehiclesData.filter((v: Vehicle) => v.status === "active"))
+      setCustomers(customersData.filter((c: Customer) => c.status === "active"))
 
       const stored = getOptimizedRoutes()
       if (!stored || !stored.routes || stored.routes.length === 0) {
@@ -125,7 +116,6 @@ export default function MapPage() {
       if (!stored || !stored.routes || stored.routes.length === 0) {
         setRoutes(mockRoutes)
       }
-      setIsDemo(true)
     } finally {
       setLoading(false)
     }
@@ -197,9 +187,7 @@ export default function MapPage() {
             <p className="text-xs sm:text-sm text-slate-500 line-clamp-1">
               {optimizedData
                 ? `Son: ${new Date(optimizedData.optimizedAt).toLocaleString("tr-TR")}`
-                : isDemo
-                  ? "Demo modu"
-                  : "Tum konumlari goruntuleyin"}
+                : "Tum konumlari goruntuleyin"}
             </p>
           </div>
 
@@ -261,8 +249,6 @@ export default function MapPage() {
           <div
             className={cn(
               "border-r border-slate-200 bg-white flex flex-col min-h-0",
-              // Mobilde: mobileView="list" ise tam genislik, degilse gizli
-              // Desktop: showRoutePanel true ise 320px, degilse gizli
               "w-full sm:w-80",
               mobileView !== "list" && "hidden sm:flex",
               !showRoutePanel && "sm:hidden",
@@ -440,7 +426,6 @@ export default function MapPage() {
               loading={loading}
             />
 
-            {/* Toggle Route Panel Button - Desktop only */}
             <Button
               variant="secondary"
               size="sm"
@@ -461,44 +446,21 @@ export default function MapPage() {
               Rotalar
             </Button>
 
-            {/* Selected Route Info - Mobilde daha kompakt */}
             {selectedRoute && (
               <Card className="absolute bottom-4 left-4 right-4 z-[1000] p-3 sm:p-4 bg-white/95 backdrop-blur shadow-lg max-w-2xl mx-auto">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 sm:gap-4">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                      <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-sm sm:text-base truncate">
+                    <Truck className="w-5 h-5 text-emerald-600" />
+                    <div>
+                      <div className="font-semibold text-sm sm:text-base">
                         {getVehicleByRoute(selectedRoute)?.plate || "Arac"}
                       </div>
-                      <div className="text-xs sm:text-sm text-slate-500 truncate">
-                        {getDepotByRoute(selectedRoute)?.name || "Depo"}
-                      </div>
+                      <div className="text-xs text-slate-500">{getDepotByRoute(selectedRoute)?.name || "Depo"}</div>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm">
-                    <div className="text-center">
-                      <div className="font-bold text-sm sm:text-lg text-emerald-600">
-                        {(selectedRoute.total_distance_km || 0).toFixed(1)}
-                      </div>
-                      <div className="text-slate-500 text-[10px] sm:text-xs">km</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-bold text-sm sm:text-lg text-blue-600">
-                        {selectedRoute.total_duration_min || 0}
-                      </div>
-                      <div className="text-slate-500 text-[10px] sm:text-xs">dk</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-bold text-sm sm:text-lg text-purple-600">
-                        {selectedRoute.stops?.length || 0}
-                      </div>
-                      <div className="text-slate-500 text-[10px] sm:text-xs">durak</div>
-                    </div>
-                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedRoute(null)}>
+                    <span className="text-xs">Kapat</span>
+                  </Button>
                 </div>
               </Card>
             )}
