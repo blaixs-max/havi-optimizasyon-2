@@ -22,8 +22,45 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * c
 }
 
-async function getRouteGeometry(coordinates: [number, number][]): Promise<any[]> {
-  if (coordinates.length < 2) return []
+function encodePolyline(coordinates: [number, number][]): string {
+  if (!coordinates || coordinates.length === 0) return ""
+
+  let output = ""
+  let prevLat = 0
+  let prevLng = 0
+
+  for (const [lng, lat] of coordinates) {
+    const latE5 = Math.round(lat * 1e5)
+    const lngE5 = Math.round(lng * 1e5)
+
+    const dLat = latE5 - prevLat
+    const dLng = lngE5 - prevLng
+
+    output += encodeValue(dLat)
+    output += encodeValue(dLng)
+
+    prevLat = latE5
+    prevLng = lngE5
+  }
+
+  return output
+}
+
+function encodeValue(value: number): string {
+  let encoded = ""
+  let v = value < 0 ? ~(value << 1) : value << 1
+
+  while (v >= 0x20) {
+    encoded += String.fromCharCode((0x20 | (v & 0x1f)) + 63)
+    v >>= 5
+  }
+  encoded += String.fromCharCode(v + 63)
+
+  return encoded
+}
+
+async function getRouteGeometry(coordinates: [number, number][]): Promise<string> {
+  if (coordinates.length < 2) return ""
 
   try {
     const response = await fetch(`https://api.openrouteservice.org/v2/directions/driving-hgv/geojson`, {
@@ -33,7 +70,7 @@ async function getRouteGeometry(coordinates: [number, number][]): Promise<any[]>
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        coordinates: coordinates.map(([lng, lat]) => [lng, lat]), // ORS lng, lat order
+        coordinates: coordinates,
         instructions: false,
         elevation: false,
       }),
@@ -42,14 +79,18 @@ async function getRouteGeometry(coordinates: [number, number][]): Promise<any[]>
 
     if (!response.ok) {
       console.warn("[v0] ORS geometry failed, falling back to straight lines")
-      return []
+      return encodePolyline(coordinates)
     }
 
     const data = await response.json()
-    return data.features?.[0]?.geometry?.coordinates || []
+    const orsCoordinates = data.features?.[0]?.geometry?.coordinates || []
+    if (orsCoordinates.length > 0) {
+      return encodePolyline(orsCoordinates)
+    }
+    return encodePolyline(coordinates)
   } catch (error) {
     console.warn("[v0] ORS geometry error:", error)
-    return []
+    return encodePolyline(coordinates)
   }
 }
 
@@ -561,7 +602,7 @@ async function optimizeWithRailway(
           tollCost: route.toll_cost || route.tollCost || 0,
           totalLoad,
           capacityUtilization: Math.round((totalLoad / (vehicle?.capacity_pallet || 12)) * 100),
-          geometry: geometry.length > 0 ? geometry : null,
+          geometry: geometry || null,
         }
       }),
     )
