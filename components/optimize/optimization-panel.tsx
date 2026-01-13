@@ -253,6 +253,11 @@ export function OptimizationPanel() {
       const data = await response.json()
       console.log("[v0] Optimization result:", data)
 
+      if (!data || !data.routes || !Array.isArray(data.routes)) {
+        console.error("[v0] Invalid response format:", data)
+        throw new Error("Sunucudan geçersiz yanıt alındı")
+      }
+
       setResult(data)
       setProgress(100)
 
@@ -286,6 +291,8 @@ export function OptimizationPanel() {
         const tollCostValue = route.tollCost ?? 0
         const totalCostValue = route.totalCost ?? fuelCostValue + distanceCostValue + fixedCostValue + tollCostValue
 
+        const routeStops = !route.stops || !Array.isArray(route.stops) ? [] : route.stops
+
         return {
           id: `route-${index + 1}`,
           vehicle_id: route.vehicleId,
@@ -300,7 +307,7 @@ export function OptimizationPanel() {
           distance_cost: distanceCostValue,
           fixed_cost: fixedCostValue,
           toll_cost: tollCostValue,
-          stops: route.stops.map((stop: any, stopIndex: number) => {
+          stops: routeStops.map((stop: any, stopIndex: number) => {
             const customer = customers.find((c) => c.id === stop.customerId)
             return {
               customer_id: stop.customerId,
