@@ -62,7 +62,207 @@ def parse_time_constraint(constraint: str) -> tuple:
     return (0, 24 * 60)
 
 def optimize_routes(depots: list, customers: list, vehicles: list, fuel_price: float = 47.50) -> dict:
-    """Multi-depot VRP optimizer"""
+    """Multi-depot VRP optimizer with single-depot fallback"""
+    
+    if len(depots) > 1:
+        try:
+            print(f"[OR-Tools] Attempting multi-depot optimization with {len(depots)} depots...")
+            return _optimize_multi_depot(depots, customers, vehicles, fuel_price)
+        except Exception as e:
+            print(f"[OR-Tools] Multi-depot failed: {e}")
+            print(f"[OR-Tools] Falling back to single-depot mode...")
+            # Use first depot as primary
+            return _optimize_single_depot(depots[0], depots, customers, vehicles, fuel_price)
+    else:
+        return _optimize_single_depot(depots[0], depots, customers, vehicles, fuel_price)
+
+def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: list, vehicles: list, fuel_price: float) -> dict:
+    """Single depot optimization (stable fallback)"""
+    try:
+        print(f"[OR-Tools] Starting single-depot optimization...")
+        print(f"[OR-Tools] Primary depot: {primary_depot.get('name', primary_depot.get('id'))}")
+        print(f"[OR-Tools] Customers: {len(customers)}")
+        print(f"[OR-Tools] Vehicles: {len(vehicles)}")
+        
+        depot_lat = primary_depot["location"]["lat"]
+        depot_lng = primary_depot["location"]["lng"]
+        
+        if not (-90 <= depot_lat <= 90) or not (-180 <= depot_lng <= 180):
+            raise ValueError(f"Invalid depot coordinates: lat={depot_lat}, lng={depot_lng}")
+        
+        # Locations: depot + customers
+        locations = [(depot_lat, depot_lng)]
+        demands = [0]
+        
+        for customer in customers:
+            lat = customer["location"]["lat"]
+            lng = customer["location"]["lng"]
+            
+            if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+                print(f"[OR-Tools] WARNING: Invalid customer coordinates: lat={lat}, lng={lng}")
+                continue
+                
+            locations.append((lat, lng))
+            demands.append(customer.get("demand_pallets", 1))
+        
+        num_locations = len(locations)
+        num_vehicles = len(vehicles)
+        
+        print(f"[OR-Tools] Locations: {num_locations} (1 depot + {num_locations-1} customers)")
+        print(f"[OR-Tools] Total demand: {sum(demands)} pallets")
+        
+        # Distance matrix
+        distance_matrix = []
+        for i, loc1 in enumerate(locations):
+            row = []
+            for j, loc2 in enumerate(locations):
+                if i == j:
+                    row.append(0)
+                else:
+                    dist = haversine_distance(loc1[0], loc1[1], loc2[0], loc2[1])
+                    dist = max(0.1, min(dist, 20000))
+                    row.append(int(dist * 1000))
+            distance_matrix.append(row)
+        
+        vehicle_capacities = [v.get("capacity_pallets", 26) for v in vehicles]
+        total_capacity = sum(vehicle_capacities)
+        total_demand = sum(demands)
+        
+        print(f"[OR-Tools] Total capacity: {total_capacity} pallets")
+        print(f"[OR-Tools] Demand/Capacity ratio: {total_demand/total_capacity:.2f}")
+        
+        if total_demand > total_capacity:
+            raise ValueError(f"Insufficient capacity: {total_demand} > {total_capacity}")
+        
+        manager = pywrapcp.RoutingIndexManager(num_locations, num_vehicles, 0)
+        routing = pywrapcp.RoutingModel(manager)
+        
+        def distance_callback(from_index, to_index):
+            from_node = manager.IndexToNode(from_index)
+            to_node = manager.IndexToNode(to_index)
+            return distance_matrix[from_node][to_node]
+        
+        transit_callback_index = routing.RegisterTransitCallback(distance_callback)
+        routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+        
+        def demand_callback(from_index):
+            from_node = manager.IndexToNode(from_index)
+            return demands[from_node]
+        
+        demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
+        routing.AddDimensionWithVehicleCapacity(
+            demand_callback_index,
+            0,
+            vehicle_capacities,
+            True,
+            'Capacity'
+        )
+        
+        search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+        search_parameters.first_solution_strategy = (
+            routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+        )
+        search_parameters.time_limit.seconds = 30
+        
+        print(f"[OR-Tools] Solving...")
+        solution = routing.SolveWithParameters(search_parameters)
+        
+        if not solution:
+            raise Exception(f"No solution found")
+        
+        # Service times
+        service_times = [0]
+        for customer in customers:
+            business = customer.get("business_type", "default")
+            service_times.append(SERVICE_TIMES.get(business, SERVICE_TIMES["default"]))
+        
+        # Parse results
+        routes = []
+        
+        for vehicle_id in range(num_vehicles):
+            index = routing.Start(vehicle_id)
+            route_distance = 0
+            route_stops = []
+            
+            while not routing.IsEnd(index):
+                node_index = manager.IndexToNode(index)
+                
+                if node_index > 0:  # Skip depot
+                    customer = customers[node_index - 1]
+                    route_stops.append({
+                        "customer_id": customer["id"],
+                        "customer_name": customer["name"],
+                        "location": customer["location"],
+                        "demand": customer["demand_pallets"],
+                        "service_time": service_times[node_index]
+                    })
+                
+                previous_index = index
+                index = solution.Value(routing.NextVar(index))
+                route_distance += routing.GetArcCostForVehicle(previous_index, index, vehicle_id)
+            
+            if len(route_stops) > 0:
+                route_distance_km = route_distance / 1000
+                vehicle = vehicles[vehicle_id]
+                fuel_consumption = VEHICLE_TYPES[vehicle["type"]]["fuel"]
+                
+                route_duration_minutes = (route_distance_km / 60) * 60
+                route_duration_minutes += sum(s["service_time"] for s in route_stops)
+                
+                fuel_cost = (route_distance_km / 100) * fuel_consumption * fuel_price
+                distance_cost = route_distance_km * 2.5
+                fixed_cost = 500.0
+                toll_cost = route_distance_km * 0.5
+                total_cost = fuel_cost + distance_cost + fixed_cost + toll_cost
+                
+                first_customer_loc = route_stops[0]["location"]
+                nearest_depot = primary_depot
+                min_distance = float('inf')
+                
+                for depot in all_depots:
+                    dist = haversine_distance(
+                        depot["location"]["lat"],
+                        depot["location"]["lng"],
+                        first_customer_loc["lat"],
+                        first_customer_loc["lng"]
+                    )
+                    if dist < min_distance:
+                        min_distance = dist
+                        nearest_depot = depot
+                
+                routes.append({
+                    "vehicle_id": vehicle["id"],
+                    "vehicle_type": vehicle["type"],
+                    "depot_id": nearest_depot["id"],
+                    "depot_name": nearest_depot.get("name", nearest_depot["id"]),
+                    "stops": route_stops,
+                    "distance_km": round(route_distance_km, 2),
+                    "duration_minutes": round(route_duration_minutes, 2),
+                    "fuel_cost": round(fuel_cost, 2),
+                    "distance_cost": round(distance_cost, 2),
+                    "fixed_cost": round(fixed_cost, 2),
+                    "toll_cost": round(toll_cost, 2),
+                    "total_cost": round(total_cost, 2),
+                    "total_pallets": sum(s["demand"] for s in route_stops)
+                })
+        
+        print(f"[OR-Tools] Generated {len(routes)} routes")
+        
+        return {
+            "routes": routes,
+            "summary": {
+                "total_routes": len(routes),
+                "total_distance_km": round(sum(r["distance_km"] for r in routes), 2),
+                "total_vehicles_used": len(routes),
+                "algorithm": "OR-Tools (single-depot with post-assignment)"
+            }
+        }
+    except Exception as e:
+        print(f"[OR-Tools] Single-depot ERROR: {e}")
+        raise e
+
+def _optimize_multi_depot(depots: list, customers: list, vehicles: list, fuel_price: float) -> dict:
+    """True multi-depot optimization (experimental)"""
     try:
         print(f"[OR-Tools] Starting optimization...")
         print(f"[OR-Tools] Depots: {len(depots)}")
@@ -134,16 +334,22 @@ def optimize_routes(depots: list, customers: list, vehicles: list, fuel_price: f
             raise ValueError(f"Total demand ({total_demand}) exceeds total capacity ({total_capacity})")
         
         print(f"[OR-Tools] Creating RoutingIndexManager...")
-        depot_indices = list(range(len(depots)))
-        print(f"[OR-Tools] Depot indices: {depot_indices}")
+        
+        # 9 arac, 3 depo -> [0,1,2,0,1,2,0,1,2]
+        num_depots = len(depots)
+        starts = [i % num_depots for i in range(num_vehicles)]
+        ends = starts  # Araclar basladiklarini depoya doner
+        
+        print(f"[OR-Tools] Start depots: {starts}")
+        print(f"[OR-Tools] End depots: {ends}")
         
         manager = pywrapcp.RoutingIndexManager(
             num_locations,
             num_vehicles,
-            depot_indices,  # start depots
-            depot_indices   # end depots (vehicles return to same depot)
+            starts,  # Her arac icin baslangic depo indexi
+            ends     # Her arac icin bitis depo indexi
         )
-        print(f"[OR-Tools] RoutingIndexManager created with {len(depots)} depots")
+        print(f"[OR-Tools] RoutingIndexManager created with {num_depots} depots")
         
         print(f"[OR-Tools] Creating RoutingModel...")
         routing = pywrapcp.RoutingModel(manager)
