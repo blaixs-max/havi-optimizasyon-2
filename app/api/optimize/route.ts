@@ -22,6 +22,37 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * c
 }
 
+async function getRouteGeometry(coordinates: [number, number][]): Promise<any[]> {
+  if (coordinates.length < 2) return []
+
+  try {
+    const response = await fetch(`https://api.openrouteservice.org/v2/directions/driving-hgv/geojson`, {
+      method: "POST",
+      headers: {
+        Authorization: process.env.ORS_API_KEY || "",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        coordinates: coordinates.map(([lng, lat]) => [lng, lat]), // ORS lng, lat order
+        instructions: false,
+        elevation: false,
+      }),
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) {
+      console.warn("[v0] ORS geometry failed, falling back to straight lines")
+      return []
+    }
+
+    const data = await response.json()
+    return data.features?.[0]?.geometry?.coordinates || []
+  } catch (error) {
+    console.warn("[v0] ORS geometry error:", error)
+    return []
+  }
+}
+
 // ORS Optimization API ile rota optimizasyonu
 async function optimizeWithORS(
   depots: Depot[],
@@ -524,49 +555,73 @@ async function optimizeWithRailway(
     const customerMap = new Map(customers.map((c) => [c.id, c]))
     const depotMap = new Map(selectedDepots.map((d) => [d.id, d]))
 
-    const formattedRoutes = (railwayResult.routes || []).map((route: any) => {
-      const vehicle = vehicleMap.get(route.vehicle_id || route.vehicleId)
-      const vehicleName = vehicle?.plate || vehicle?.name || `Araç ${route.vehicle_id || route.vehicleId}`
+    const formattedRoutes = await Promise.all(
+      (railwayResult.routes || []).map(async (route: any) => {
+        const stopsData = (route.stops || []).map((stop: any) => {
+          const customerId = stop.customer_id || stop.customerId
+          const customer = customerMap.get(customerId)
 
-      const stopsData = (route.stops || []).map((stop: any) => {
-        const customerId = stop.customer_id || stop.customerId
-        const customer = customerMap.get(customerId)
+          return {
+            customerId: customerId,
+            customerName: customer?.name || stop.customer_name || `Müşteri ${customerId}`,
+            location: stop.location || { lat: stop.lat, lng: stop.lng },
+            demand: stop.demand || stop.demand_pallets || customer?.demand_pallet || customer?.demand_pallets || 0,
+            serviceTime: stop.service_time || 0,
+          }
+        })
+
+        const calculatedLoad = stopsData.reduce((sum, s) => sum + (s.demand || 0), 0)
+        const totalLoad = route.total_load || route.totalLoad || calculatedLoad
+
+        const vehicle = vehicleMap.get(route.vehicle_id || route.vehicleId)
+        const vehicleName = vehicle?.plate || vehicle?.name || `Araç ${route.vehicle_id || route.vehicleId}`
+
+        const routeCoordinates: [number, number][] = []
+        const depot = depotMap.get(route.depot_id || route.depotId)
+
+        if (depot?.lng && depot?.lat) {
+          routeCoordinates.push([depot.lng, depot.lat])
+        }
+
+        stopsData.forEach((stop: any) => {
+          const lng = stop.location?.lng || stop.lng
+          const lat = stop.location?.lat || stop.lat
+          if (lng && lat) {
+            routeCoordinates.push([lng, lat])
+          }
+        })
+
+        if (depot?.lng && depot?.lat) {
+          routeCoordinates.push([depot.lng, depot.lat])
+        }
+
+        const geometry = await getRouteGeometry(routeCoordinates)
 
         return {
-          customerId: customerId,
-          customerName: customer?.name || stop.customer_name || `Müşteri ${customerId}`,
-          location: stop.location || { lat: stop.lat, lng: stop.lng },
-          demand: stop.demand || stop.demand_pallets || customer?.demand_pallet || customer?.demand_pallets || 0,
-          serviceTime: stop.service_time || 0,
+          vehicleId: route.vehicle_id || route.vehicleId,
+          vehicleName: vehicleName,
+          vehiclePlate: vehicle?.plate || vehicleName,
+          vehicleType: vehicle?.vehicle_type || vehicle?.type || "truck",
+          depotId: route.depot_id || route.depotId,
+          depotName: depotMap.get(route.depot_id || route.depotId)?.name || "Depo",
+          stops: stopsData,
+          totalDistance: route.total_distance_km || route.distance_km || route.totalDistance || 0,
+          totalDuration:
+            route.duration_minutes || route.total_duration_min || route.duration_min || route.totalDuration || 0,
+          fuelCost: route.fuel_cost || route.fuelCost || 0,
+          fixedCost: route.fixed_cost || route.fixedCost || 0,
+          distanceCost: route.distance_cost || route.distanceCost || 0,
+          tollCost: route.toll_cost || route.tollCost || 0,
+          totalCost: route.total_cost || route.totalCost || 0,
+          totalLoad: totalLoad,
+          capacityUtilization:
+            route.capacity_utilization ||
+            route.capacityUtilization ||
+            (vehicle?.capacity_pallet ? Math.round((totalLoad / vehicle.capacity_pallet) * 100) : 0),
+          geometry: geometry,
         }
-      })
-
-      const calculatedLoad = stopsData.reduce((sum, s) => sum + (s.demand || 0), 0)
-      const totalLoad = route.total_load || route.totalLoad || calculatedLoad
-
-      return {
-        vehicleId: route.vehicle_id || route.vehicleId,
-        vehicleName: vehicleName,
-        vehiclePlate: vehicle?.plate || vehicleName,
-        vehicleType: vehicle?.vehicle_type || vehicle?.type || "truck",
-        depotId: route.depot_id || route.depotId,
-        depotName: depotMap.get(route.depot_id || route.depotId)?.name || "Depo",
-        stops: stopsData,
-        totalDistance: route.total_distance_km || route.distance_km || route.totalDistance || 0,
-        totalDuration:
-          route.duration_minutes || route.total_duration_min || route.duration_min || route.totalDuration || 0,
-        fuelCost: route.fuel_cost || route.fuelCost || 0,
-        fixedCost: route.fixed_cost || route.fixedCost || 0,
-        distanceCost: route.distance_cost || route.distanceCost || 0,
-        tollCost: route.toll_cost || route.tollCost || 0,
-        totalCost: route.total_cost || route.totalCost || 0,
-        totalLoad: totalLoad,
-        capacityUtilization:
-          route.capacity_utilization ||
-          route.capacityUtilization ||
-          (vehicle?.capacity_pallet ? Math.round((totalLoad / vehicle.capacity_pallet) * 100) : 0),
-      }
-    })
+      }),
+    )
 
     console.log("[v0] Formatted routes count:", formattedRoutes.length)
     if (formattedRoutes.length > 0) {
@@ -579,68 +634,6 @@ async function optimizeWithRailway(
         totalDistance: formattedRoutes[0].totalDistance,
         totalCost: formattedRoutes[0].totalCost,
       })
-    }
-
-    // Geometry and cost calculation for each route
-    const client = new ORSClient(ORS_API_KEY!)
-    for (const route of formattedRoutes) {
-      console.log("[v0] Processing route:", route.vehicleId, "stops:", route.stops?.length)
-
-      if (!route || typeof route !== "object") {
-        console.warn("[v0] Invalid route object, skipping")
-        continue
-      }
-
-      if (!route.stops || !Array.isArray(route.stops)) {
-        console.warn("[v0] Route missing stops array, skipping:", route.vehicleId)
-        continue
-      }
-
-      if (route.stops.length === 0) {
-        console.warn("[v0] Route has empty stops, skipping:", route.vehicleId)
-        continue
-      }
-
-      // Rota noktaları: depot -> stops -> depot
-      const depot = depotMap.get(route.depotId)
-      if (!depot) {
-        console.warn("[v0] Depot not found for route:", route.depotId)
-        continue
-      }
-
-      const routePoints = [
-        { lat: depot.lat, lng: depot.lng },
-        ...route.stops.map((s: any) => {
-          // Railway sends location as {lat, lng} object
-          if (s.location && typeof s.location === "object") {
-            return { lat: s.location.lat, lng: s.location.lng }
-          }
-          // Fallback if lat/lng are direct properties
-          return { lat: s.lat, lng: s.lng }
-        }),
-        { lat: depot.lat, lng: depot.lng },
-      ]
-
-      try {
-        // ORS Directions API ile gerçek yol geometrisi al
-        const geometryPoints = await client.getRouteGeometry(routePoints, "driving-hgv")
-        route.geometryPoints = geometryPoints
-
-        // Köprü/otoyol maliyet hesaplama
-        const vehicleType = route.vehicleType || "truck"
-        const tollCalculation = calculateTollCosts(geometryPoints, vehicleType, route.totalDistance || 0)
-
-        route.tollCost = tollCalculation.totalTollCost
-        route.tollCrossings = tollCalculation.crossings
-        route.highwayUsage = tollCalculation.highwayUsage
-
-        // Toplam maliyeti güncelle
-        route.totalCost = (route.fuelCost || 0) + (route.fixedCost || 0) + (route.distanceCost || 0) + route.tollCost
-      } catch (geoError) {
-        console.error("[v0] Failed to get geometry for route:", route.vehicleId, geoError)
-        // Geometri alınamazsa basit polyline kullan
-        route.geometryPoints = routePoints
-      }
     }
 
     const summary = {

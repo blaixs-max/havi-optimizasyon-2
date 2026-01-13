@@ -171,11 +171,21 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
             }
 
             // Rota cizgisi
-            if (routePoints.length > 1) {
-              L.polyline(routePoints, {
+            if (route.geometry && route.geometry.length > 0) {
+              // ORS geometry kullan (gerçek yol)
+              const geometryPoints: [number, number][] = route.geometry.map((coord: number[]) => [coord[1], coord[0]]) // lat, lng
+              L.polyline(geometryPoints, {
                 color: color,
                 weight: 4,
                 opacity: 0.8,
+              }).addTo(map)
+            } else if (routePoints.length > 1) {
+              // Fallback: kuş uçuşu
+              L.polyline(routePoints, {
+                color: color,
+                weight: 4,
+                opacity: 0.6,
+                dashArray: "5, 10",
               }).addTo(map)
             }
           })
