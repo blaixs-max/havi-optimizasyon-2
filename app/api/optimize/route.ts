@@ -471,18 +471,46 @@ async function optimizeWithRailway(
 
     const railwayResult = await railwayResponse.json()
     console.log("[v0] Railway optimization successful")
+    console.log("[v0] Railway result full response:", JSON.stringify(railwayResult, null, 2))
     console.log("[v0] Routes found:", railwayResult.routes?.length)
+    console.log("[v0] Routes type:", typeof railwayResult.routes, Array.isArray(railwayResult.routes))
+
+    if (railwayResult.routes && railwayResult.routes.length > 0) {
+      console.log("[v0] First route structure:", JSON.stringify(railwayResult.routes[0], null, 2))
+    }
 
     if (!railwayResult.routes || !Array.isArray(railwayResult.routes)) {
       console.error("[v0] Railway returned invalid routes:", railwayResult)
       throw new Error("Railway API returned invalid response: routes missing or not an array")
     }
 
+    // Routes array boş olabilir kontrolü ekleniyor
+    if (railwayResult.routes.length === 0) {
+      console.warn("[v0] Railway returned no routes")
+      return {
+        success: true,
+        provider: "ortools-railway",
+        summary: {
+          totalRoutes: 0,
+          totalDistance: 0,
+          totalDuration: 0,
+          totalCost: 0,
+          unassignedCount: customersToOptimize.length,
+          computationTimeMs: railwayResult.computation_time_ms || 0,
+        },
+        routes: [],
+        unassigned: customersToOptimize.map((c) => c.id),
+      }
+    }
+
     // Geometry and cost calculation for each route
     const client = new ORSClient(ORS_API_KEY!)
     for (const route of railwayResult.routes) {
+      console.log("[v0] Processing route:", route.vehicleId || route.vehicle_id, "stops:", route.stops?.length)
+
       if (!route.stops || !Array.isArray(route.stops) || route.stops.length === 0) {
-        console.warn("[v0] Route has no stops:", route)
+        console.warn("[v0] Route has no stops, route keys:", Object.keys(route))
+        console.warn("[v0] Route full object:", JSON.stringify(route, null, 2))
         continue
       }
 
