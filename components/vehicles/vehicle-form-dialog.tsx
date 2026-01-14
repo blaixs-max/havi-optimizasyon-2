@@ -32,16 +32,16 @@ export function VehicleFormDialog({ open, onOpenChange, vehicle, depots = [], on
   const [form, setForm] = useState({
     plate: "",
     depot_id: "",
-    vehicle_type: "kamyon" as "kamyon" | "tir",
-    capacity_pallets: "12",
-    capacity_kg: "8000",
-    capacity_m3: "25", // Hacim kapasitesi eklendi
+    vehicle_type: "kamyonet" as "kamyonet" | "kamyon_1" | "kamyon_2" | "tir" | "romork",
+    capacity_pallets: "10",
+    capacity_kg: "7500",
+    capacity_m3: "20",
     cost_per_km: "2.20",
-    fuel_consumption_per_100km: "18",
+    fuel_consumption_per_100km: "15",
     fixed_daily_cost: "450",
     avg_speed_kmh: "65",
-    max_work_hours: "11", // Maksimum çalışma saati eklendi
-    mandatory_break_min: "45", // Zorunlu mola eklendi
+    max_work_hours: "11",
+    mandatory_break_min: "45",
     status: "available" as Vehicle["status"],
   })
 
@@ -58,25 +58,25 @@ export function VehicleFormDialog({ open, onOpenChange, vehicle, depots = [], on
         vehicle_type: vehicle.vehicle_type,
         capacity_pallets: vehicle.capacity_pallets.toString(),
         capacity_kg: vehicle.capacity_kg.toString(),
-        capacity_m3: vehicle.capacity_m3?.toString() || "25", // Hacim kapasitesi
+        capacity_m3: vehicle.capacity_m3?.toString() || "20",
         cost_per_km: vehicle.cost_per_km.toString(),
         fuel_consumption_per_100km: vehicle.fuel_consumption_per_100km.toString(),
         fixed_daily_cost: vehicle.fixed_daily_cost.toString(),
         avg_speed_kmh: vehicle.avg_speed_kmh.toString(),
-        max_work_hours: vehicle.max_work_hours?.toString() || "11", // Çalışma saati
-        mandatory_break_min: vehicle.mandatory_break_min?.toString() || "45", // Mola süresi
+        max_work_hours: vehicle.max_work_hours?.toString() || "11",
+        mandatory_break_min: vehicle.mandatory_break_min?.toString() || "45",
         status: vehicle.status,
       })
     } else {
       setForm({
         plate: "",
         depot_id: depots[0]?.id || "",
-        vehicle_type: "kamyon",
-        capacity_pallets: "12",
-        capacity_kg: "8000",
-        capacity_m3: "25",
+        vehicle_type: "kamyonet",
+        capacity_pallets: "10",
+        capacity_kg: "7500",
+        capacity_m3: "20",
         cost_per_km: "2.20",
-        fuel_consumption_per_100km: "18",
+        fuel_consumption_per_100km: "15",
         fixed_daily_cost: "450",
         avg_speed_kmh: "65",
         max_work_hours: "11",
@@ -86,18 +86,52 @@ export function VehicleFormDialog({ open, onOpenChange, vehicle, depots = [], on
     }
   }, [open, vehicle])
 
-  function handleTypeChange(type: "kamyon" | "tir") {
+  function handleTypeChange(type: "kamyonet" | "kamyon_1" | "kamyon_2" | "tir" | "romork") {
     const config = VEHICLE_TYPES[type]
     setForm({
       ...form,
       vehicle_type: type,
       capacity_pallets: config.capacity_pallets.toString(),
-      capacity_kg: type === "kamyon" ? "8000" : "24000",
-      capacity_m3: type === "kamyon" ? "25" : "80", // Hacim TIR için daha büyük
-      fuel_consumption_per_100km: config.fuel_consumption.toString(),
-      avg_speed_kmh: config.avg_speed.toString(),
-      cost_per_km: type === "kamyon" ? "2.20" : "3.50",
-      fixed_daily_cost: type === "kamyon" ? "450" : "750",
+      capacity_kg:
+        type === "kamyonet"
+          ? "7500"
+          : type === "kamyon_1"
+            ? "10000"
+            : type === "kamyon_2"
+              ? "13000"
+              : type === "tir"
+                ? "24000"
+                : "26000",
+      capacity_m3:
+        type === "kamyonet"
+          ? "20"
+          : type === "kamyon_1"
+            ? "30"
+            : type === "kamyon_2"
+              ? "45"
+              : type === "tir"
+                ? "80"
+                : "90",
+      cost_per_km:
+        type === "kamyonet"
+          ? "1.80"
+          : type === "kamyon_1"
+            ? "2.20"
+            : type === "kamyon_2"
+              ? "2.80"
+              : type === "tir"
+                ? "3.50"
+                : "4.00",
+      fixed_daily_cost:
+        type === "kamyonet"
+          ? "300"
+          : type === "kamyon_1"
+            ? "450"
+            : type === "kamyon_2"
+              ? "550"
+              : type === "tir"
+                ? "750"
+                : "850",
     })
   }
 
@@ -185,13 +219,19 @@ export function VehicleFormDialog({ open, onOpenChange, vehicle, depots = [], on
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Araç Tipi</Label>
-              <Select value={form.vehicle_type} onValueChange={(v) => handleTypeChange(v as "kamyon" | "tir")}>
+              <Select
+                value={form.vehicle_type}
+                onValueChange={(v) => handleTypeChange(v as "kamyonet" | "kamyon_1" | "kamyon_2" | "tir" | "romork")}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="kamyon">Kamyon (12 palet)</SelectItem>
-                  <SelectItem value="tir">TIR (33 palet)</SelectItem>
+                  <SelectItem value="kamyonet">Kamyonet (10 palet - 15L/100km)</SelectItem>
+                  <SelectItem value="kamyon_1">Kamyon Tip 1 (14 palet - 20L/100km)</SelectItem>
+                  <SelectItem value="kamyon_2">Kamyon Tip 2 (18 palet - 30L/100km)</SelectItem>
+                  <SelectItem value="tir">TIR (32 palet - 35L/100km)</SelectItem>
+                  <SelectItem value="romork">Kamyon Romork (36 palet - 40L/100km)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -240,7 +280,7 @@ export function VehicleFormDialog({ open, onOpenChange, vehicle, depots = [], on
                 step="0.1"
                 value={form.capacity_m3}
                 onChange={(e) => setForm({ ...form, capacity_m3: e.target.value })}
-                placeholder="25"
+                placeholder="20"
                 required
               />
             </div>

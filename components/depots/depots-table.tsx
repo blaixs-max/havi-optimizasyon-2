@@ -83,7 +83,7 @@ export function DepotsTable() {
                 <TableCell>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <MapPin className="h-3 w-3" />
-                    {depot.lat.toFixed(4)}, {depot.lng.toFixed(4)}
+                    {Number(depot.lat).toFixed(4)}, {Number(depot.lng).toFixed(4)}
                   </div>
                 </TableCell>
                 <TableCell>

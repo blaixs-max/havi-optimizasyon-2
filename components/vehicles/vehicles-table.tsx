@@ -152,7 +152,7 @@ export function VehiclesTable() {
               <TableRow key={vehicle.id}>
                 <TableCell className="font-mono font-medium">{vehicle.plate}</TableCell>
                 <TableCell>
-                  <Badge variant="outline">{VEHICLE_TYPES[vehicle.vehicle_type]?.label || vehicle.vehicle_type}</Badge>
+                  <Badge variant="outline">{VEHICLE_TYPES[vehicle.vehicle_type]?.name || vehicle.vehicle_type}</Badge>
                 </TableCell>
                 <TableCell>
                   <Badge
@@ -166,11 +166,11 @@ export function VehiclesTable() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <span className="font-medium">{vehicle.capacity_pallet}</span> palet
+                  <span className="font-medium">{vehicle.capacity_pallets}</span> palet
                 </TableCell>
                 <TableCell>
                   <div className="text-xs">
-                    <span className="font-medium">{((vehicle.capacity_kg || 0) / 1000).toFixed(1)}</span>
+                    <span className="font-medium">{(Number(vehicle.capacity_kg || 0) / 1000).toFixed(1)}</span>
                     <span className="text-muted-foreground"> ton</span>
                   </div>
                 </TableCell>
@@ -178,7 +178,7 @@ export function VehiclesTable() {
                   <div className="text-xs">
                     {vehicle.capacity_m3 ? (
                       <>
-                        <span className="font-medium">{vehicle.capacity_m3}</span>
+                        <span className="font-medium">{Number(vehicle.capacity_m3)}</span>
                         <span className="text-muted-foreground"> m³</span>
                       </>
                     ) : (
@@ -203,8 +203,8 @@ export function VehiclesTable() {
                     )}
                   </div>
                 </TableCell>
-                <TableCell>{vehicle.cost_per_km?.toFixed(2) || "0.00"} TL</TableCell>
-                <TableCell>{vehicle.fuel_consumption_per_100km || 0} L</TableCell>
+                <TableCell>{Number(vehicle.cost_per_km || 0).toFixed(2)} TL</TableCell>
+                <TableCell>{Number(vehicle.fuel_consumption_per_100km || 0)} L</TableCell>
                 <TableCell>
                   <Badge variant={STATUS_LABELS[vehicle.status]?.variant || "outline"}>
                     {STATUS_LABELS[vehicle.status]?.label || vehicle.status}

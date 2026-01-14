@@ -196,7 +196,7 @@ export function CustomersTable() {
                     {hasValidCoords ? (
                       <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
                         <MapPin className="h-3 w-3 text-green-500" />
-                        {customer.lat.toFixed(4)}, {customer.lng.toFixed(4)}
+                        {Number(customer.lat).toFixed(4)}, {Number(customer.lng).toFixed(4)}
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 text-xs text-orange-500">
@@ -360,7 +360,7 @@ export function CustomersTable() {
                 {hasValidCoords ? (
                   <div className="flex items-center gap-1 text-slate-500 font-mono">
                     <MapPin className="h-3 w-3 text-green-500" />
-                    {customer.lat.toFixed(2)}, {customer.lng.toFixed(2)}
+                    {Number(customer.lat).toFixed(2)}, {Number(customer.lng).toFixed(2)}
                   </div>
                 ) : (
                   <div className="flex items-center gap-1 text-orange-500">
