@@ -133,7 +133,6 @@ export function VehiclesTable() {
               <TableHead>Tip</TableHead>
               <TableHead>Depo</TableHead>
               <TableHead>Kapasite (Palet)</TableHead>
-              <TableHead>Sürücü Saatleri</TableHead>
               <TableHead>Maliyet/km</TableHead>
               <TableHead>
                 <div className="flex items-center gap-1">
@@ -165,12 +164,6 @@ export function VehiclesTable() {
                 </TableCell>
                 <TableCell>
                   <span className="font-medium">{vehicle.capacity_pallets}</span> palet
-                </TableCell>
-                <TableCell>
-                  <div className="text-xs">
-                    <span className="font-medium">{vehicle.driver_max_work_hours}</span>
-                    <span className="text-muted-foreground"> saat</span>
-                  </div>
                 </TableCell>
                 <TableCell>{Number(vehicle.cost_per_km || 0).toFixed(2)} TL</TableCell>
                 <TableCell>{Number(vehicle.fuel_consumption_per_100km || 0)} L</TableCell>
