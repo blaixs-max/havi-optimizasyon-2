@@ -1,0 +1,66 @@
+import { NextResponse } from "next/server"
+import { neon } from "@neondatabase/serverless"
+
+const sql = neon(process.env.DATABASE_URL || "")
+
+export async function GET() {
+  try {
+    const orders = await sql`
+      SELECT 
+        o.id,
+        o.customer_id,
+        c.name as customer_name,
+        c.city,
+        c.district,
+        o.order_date,
+        o.pallets,
+        o.status,
+        o.delivery_date,
+        o.notes,
+        o.created_at
+      FROM orders o
+      LEFT JOIN customers c ON o.customer_id = c.id
+      ORDER BY o.order_date DESC, o.created_at DESC
+    `
+
+    return NextResponse.json(orders)
+  } catch (error: any) {
+    console.error("[v0] Failed to fetch orders:", error)
+    return NextResponse.json({ error: "Failed to fetch orders", details: error.message }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+    const { customer_id, pallets, order_date, notes } = body
+
+    const [order] = await sql`
+      INSERT INTO orders (customer_id, pallets, order_date, notes)
+      VALUES (${customer_id}, ${pallets}, ${order_date || new Date().toISOString().split("T")[0]}, ${notes || null})
+      RETURNING *
+    `
+
+    return NextResponse.json(order)
+  } catch (error: any) {
+    console.error("[v0] Failed to create order:", error)
+    return NextResponse.json({ error: "Failed to create order", details: error.message }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json({ error: "Order ID required" }, { status: 400 })
+    }
+
+    await sql`DELETE FROM orders WHERE id = ${id}`
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error("[v0] Failed to delete order:", error)
+    return NextResponse.json({ error: "Failed to delete order", details: error.message }, { status: 500 })
+  }
+}

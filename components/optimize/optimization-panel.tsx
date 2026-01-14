@@ -63,25 +63,14 @@ export function OptimizationPanel() {
     fetchData()
   }, [])
 
-  useEffect(() => {
-    if (customers.length > 0 && orders.length === 0) {
-      console.log("[v0] Auto-generating mock orders for all customers")
-      const mockOrders = customers.map((c) => ({
-        customerId: c.id,
-        customerName: c.name,
-        pallets: 5, // Varsayılan 5 palet (test için)
-      }))
-      setOrders(mockOrders)
-    }
-  }, [customers, orders.length])
-
   async function fetchData() {
     try {
-      const [depotsRes, vehiclesRes, customersRes, fuelRes] = await Promise.all([
+      const [depotsRes, vehiclesRes, customersRes, fuelRes, ordersRes] = await Promise.all([
         fetch("/api/depots"),
         fetch("/api/vehicles"),
         fetch("/api/customers"),
         fetch("/api/fuel-price"),
+        fetch("/api/orders"),
       ])
 
       if (depotsRes.ok) {
@@ -104,6 +93,19 @@ export function OptimizationPanel() {
       if (fuelRes.ok) {
         const fuelData = await fuelRes.json()
         setFuelPrice(fuelData.price || 47.5)
+      }
+
+      if (ordersRes.ok) {
+        const ordersData = await ordersRes.json()
+        const pendingOrders = ordersData
+          .filter((o: any) => o.status === "pending")
+          .map((o: any) => ({
+            customerId: o.customer_id,
+            customerName: o.customer_name,
+            pallets: o.pallets,
+          }))
+        setOrders(pendingOrders)
+        console.log("[v0] Loaded orders from API:", pendingOrders.length)
       }
     } catch (error) {
       console.error("[v0] Failed to fetch data:", error)
