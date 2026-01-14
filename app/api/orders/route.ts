@@ -5,6 +5,7 @@ const sql = neon(process.env.DATABASE_URL || "")
 
 export async function GET() {
   try {
+    console.log("[v0] GET /api/orders called")
     const orders = await sql`
       SELECT 
         o.id,
@@ -22,6 +23,12 @@ export async function GET() {
       LEFT JOIN customers c ON o.customer_id = c.id
       ORDER BY o.order_date DESC, o.created_at DESC
     `
+
+    console.log("[v0] Orders fetched from DB:", orders.length)
+    console.log(
+      "[v0] First 3 orders:",
+      orders.slice(0, 3).map((o) => ({ id: o.id, customer: o.customer_name, pallets: o.pallets })),
+    )
 
     return NextResponse.json(orders)
   } catch (error: any) {
