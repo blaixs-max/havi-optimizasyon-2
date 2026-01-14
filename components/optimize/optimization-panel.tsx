@@ -49,9 +49,10 @@ export function OptimizationPanel() {
   const [missingCoordinatesCustomers, setMissingCoordinatesCustomers] = useState<Customer[]>([])
   const [showMissingCoordinatesDialog, setShowMissingCoordinatesDialog] = useState(false)
 
+  const [orders, setOrders] = useState<{ customerId: string; customerName: string; pallets: number }[]>([])
+
   // Parameters
   const [selectedDepots, setSelectedDepots] = useState<string[]>([])
-  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([])
   const [fuelPrice, setFuelPrice] = useState(47.5)
   const [maxRouteDistance, setMaxRouteDistance] = useState<number | null>(null)
   const [maxRouteDuration, setMaxRouteDuration] = useState(600)
@@ -122,7 +123,7 @@ export function OptimizationPanel() {
     console.log("[v0] Starting optimization")
     console.log("[v0] Algorithm:", algorithm)
     console.log("[v0] Selected depots:", selectedDepots)
-    console.log("[v0] Selected customers:", selectedCustomers)
+    console.log("[v0] Orders:", orders.length)
 
     if (selectedDepots.length === 0) {
       toast({
@@ -133,7 +134,16 @@ export function OptimizationPanel() {
       return
     }
 
-    const customersToOptimize = selectedCustomers.length === 0 ? customers.map((c) => c.id) : selectedCustomers
+    if (orders.length === 0) {
+      toast({
+        title: "Hata",
+        description: "Lütfen sipariş dosyası yükleyin",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const customersToOptimize = orders.map((o) => o.customerId)
 
     console.log("[v0] Customers to optimize:", customersToOptimize.length)
 
@@ -334,10 +344,12 @@ export function OptimizationPanel() {
   }
 
   const activeDepots = depots.filter((d) => selectedDepots.includes(d.id))
-  const availableVehicles = vehicles.filter((v) => v.status === "available")
-  const totalDemand = customers.reduce((sum, c) => sum + (c.demand_pallet || c.demand_pallets || 0), 0)
-  const totalCapacity = availableVehicles.reduce((sum, v) => sum + v.capacity_pallet, 0)
-  const missingCoords = customers.filter((c) => !c.lat || !c.lng || c.lat === 0 || c.lng === 0)
+  const availableVehicles = vehicles.filter((v) => selectedDepots.includes(v.depot_id || ""))
+  const totalCapacity = availableVehicles.reduce((sum, v) => sum + (v.capacity_pallets || 0), 0)
+  const totalDemand = orders.reduce((sum, o) => sum + o.pallets, 0)
+  const missingCoords = customers
+    .filter((c) => orders.some((o) => o.customerId === c.id))
+    .filter((c) => !c.lat || !c.lng || c.lat === 0 || c.lng === 0)
 
   if (loading) {
     return (
@@ -442,30 +454,6 @@ export function OptimizationPanel() {
                 </Select>
               </div>
 
-              {/* Customer Selection */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Müşteri Seçimi</Label>
-                <Select
-                  value={selectedCustomers.length === customers.length ? "all" : selectedCustomers[0]}
-                  onValueChange={(v) => {
-                    if (v === "all") setSelectedCustomers(customers.map((c) => c.id))
-                    else setSelectedCustomers([v])
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Müşteri seç" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tüm Müşteriler</SelectItem>
-                    {customers.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Fuel Price */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Yakit Fiyati (TL/L)</Label>
@@ -559,10 +547,10 @@ export function OptimizationPanel() {
 
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground flex items-center gap-2">
-                  <MapPin className="h-4 w-4" /> Bekleyen Teslimat
+                  <MapPin className="h-4 w-4" /> Sipariş Sayısı
                 </span>
                 <Badge variant="outline">
-                  {selectedCustomers.length} teslimat
+                  {orders.length} sipariş
                   {missingCoords.length > 0 && (
                     <span className="ml-1 text-amber-500">({missingCoords.length} koordinatsız)</span>
                   )}
