@@ -560,14 +560,13 @@ async function optimizeWithRailway(
     }))
 
     const summary = {
-      totalRoutes: formattedRoutes.length,
-      totalDistance: formattedRoutes.reduce((sum, route) => sum + (route.totalDistance || 0), 0),
-      totalDuration: formattedRoutes.reduce((sum, route) => sum + (route.totalDuration || 0), 0),
-      totalCost: formattedRoutes.reduce((sum, route) => sum + (route.totalCost || 0), 0),
-      fuelCost: formattedRoutes.reduce((sum, route) => sum + (route.fuelCost || 0), 0),
-      fixedCost: formattedRoutes.reduce((sum, route) => sum + (route.fixedCost || 0), 0),
-      distanceCost: formattedRoutes.reduce((sum, route) => sum + (route.distanceCost || 0), 0),
-      tollCost: formattedRoutes.reduce((sum, route) => sum + (route.tollCost || 0), 0),
+      totalDistance: formattedRoutes.reduce((sum, r) => sum + (r.totalDistance || 0), 0),
+      totalDuration: formattedRoutes.reduce((sum, r) => sum + (r.totalDuration || 0), 0),
+      totalCost: formattedRoutes.reduce((sum, r) => sum + (r.totalCost || 0), 0),
+      fuelCost: formattedRoutes.reduce((sum, r) => sum + (r.fuelCost || 0), 0),
+      fixedCost: formattedRoutes.reduce((sum, r) => sum + (r.fixedCost || 0), 0),
+      distanceCost: formattedRoutes.reduce((sum, r) => sum + (r.distanceCost || 0), 0),
+      tollCost: formattedRoutes.reduce((sum, r) => sum + (r.tollCost || 0), 0),
       unassignedCount: 0,
       computationTimeMs: 0,
     }
