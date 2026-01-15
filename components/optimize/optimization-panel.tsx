@@ -194,10 +194,13 @@ export function OptimizationPanel() {
   }
 
   async function handleOptimize() {
+    console.log("========================================")
+    console.log("[v0] OPTIMIZE BUTTON CLICKED!")
     console.log("[v0] Starting optimization")
     console.log("[v0] Algorithm:", algorithm)
     console.log("[v0] Selected depots:", selectedDepots)
     console.log("[v0] Orders:", orders.length)
+    console.log("========================================")
 
     if (selectedDepots.length === 0) {
       toast({
