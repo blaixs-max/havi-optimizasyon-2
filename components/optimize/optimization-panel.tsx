@@ -253,6 +253,7 @@ export function OptimizationPanel() {
     })
 
     try {
+      console.log("[v0] Creating job...")
       const jobRes = await fetch("/api/optimize/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
