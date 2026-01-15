@@ -93,6 +93,9 @@ export function OptimizationPanel() {
 
         if (data.status === "completed") {
           console.log("[v0] Job completed, result:", data.result) // Debug log eklendi
+          console.log("[v0] Result routes count:", data.result?.routes?.length)
+          console.log("[v0] Result summary:", data.result?.summary)
+          console.log("[v0] First route sample:", data.result?.routes?.[0])
           setResult(data.result)
           setOptimizing(false)
           setProgress(100)
