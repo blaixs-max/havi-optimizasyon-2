@@ -1,21 +1,31 @@
 import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 
+console.log("[v0] Jobs route module loaded")
+
 const sql = neon(process.env.DATABASE_URL!)
 
-export async function POST(request: Request) {
-  console.log("[v0] POST /api/optimize/jobs called")
-  try {
-    const requestData = await request.json()
-    console.log(
-      "[v0] Request data received, depots:",
-      requestData.depots?.length,
-      "vehicles:",
-      requestData.vehicles?.length,
-      "customers:",
-      requestData.customers?.length,
-    )
+export async function GET(request: Request) {
+  console.log("[v0] GET /api/optimize/jobs called")
+  return NextResponse.json({
+    message: "Jobs API is working",
+    timestamp: new Date().toISOString(),
+  })
+}
 
+export async function POST(request: Request) {
+  console.log("[v0] POST /api/optimize/jobs called - START")
+
+  try {
+    console.log("[v0] Reading request body...")
+    const requestData = await request.json()
+
+    console.log("[v0] Request data parsed successfully")
+    console.log("[v0] Depots:", requestData.depots?.length)
+    console.log("[v0] Vehicles:", requestData.vehicles?.length)
+    console.log("[v0] Customers:", requestData.customers?.length)
+
+    console.log("[v0] Inserting into database...")
     const result = await sql`
       INSERT INTO optimization_jobs (request_data, status)
       VALUES (${JSON.stringify(requestData)}, 'pending')
@@ -23,7 +33,7 @@ export async function POST(request: Request) {
     `
 
     const job = result[0]
-    console.log("[v0] Job created:", job.id)
+    console.log("[v0] Job created successfully:", job.id)
 
     return NextResponse.json({
       jobId: job.id,
@@ -31,45 +41,13 @@ export async function POST(request: Request) {
       createdAt: job.created_at,
     })
   } catch (error) {
-    console.error("[v0] Failed to create job:", error)
-    return NextResponse.json({ error: "Failed to create job" }, { status: 500 })
-  }
-}
+    console.error("[v0] POST handler error:", error)
+    console.error("[v0] Error name:", error instanceof Error ? error.name : "unknown")
+    console.error("[v0] Error message:", error instanceof Error ? error.message : "unknown")
 
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const jobId = searchParams.get("jobId")
-
-    if (!jobId) {
-      return NextResponse.json({ error: "Job ID required" }, { status: 400 })
-    }
-
-    const result = await sql`
-      SELECT id, status, result_data, error_message, 
-             created_at, started_at, completed_at, processing_time_seconds
-      FROM optimization_jobs
-      WHERE id = ${jobId}
-    `
-
-    if (result.length === 0) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 })
-    }
-
-    const job = result[0]
-
-    return NextResponse.json({
-      jobId: job.id,
-      status: job.status,
-      result: job.result_data,
-      error: job.error_message,
-      createdAt: job.created_at,
-      startedAt: job.started_at,
-      completedAt: job.completed_at,
-      processingTimeSeconds: job.processing_time_seconds,
-    })
-  } catch (error) {
-    console.error("[v0] Failed to get job status:", error)
-    return NextResponse.json({ error: "Failed to get job status" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Failed to create job", details: error instanceof Error ? error.message : "unknown" },
+      { status: 500 },
+    )
   }
 }
