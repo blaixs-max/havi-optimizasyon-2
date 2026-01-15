@@ -500,6 +500,11 @@ async function optimizeWithRailway(
     const railwayResult = await railwayResponse.json()
     console.log("[v0] Railway optimization successful")
 
+    if (railwayResult.routes && railwayResult.routes.length > 0) {
+      console.log("[v0] Railway first route keys:", Object.keys(railwayResult.routes[0]))
+      console.log("[v0] Railway first route sample:", JSON.stringify(railwayResult.routes[0], null, 2))
+    }
+
     if (!railwayResult || !railwayResult.routes || !Array.isArray(railwayResult.routes)) {
       throw new Error("Railway returned invalid response")
     }
@@ -556,7 +561,7 @@ async function optimizeWithRailway(
         cumulativeLoad: stop.cumulative_load || 0,
         arrivalTime: stop.arrival_time || null,
       })),
-      geometry: route.geometry || [], // Include geometry if available
+      geometry: route.geometry || [],
     }))
 
     const summary = {
