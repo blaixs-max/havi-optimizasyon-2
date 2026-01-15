@@ -3,9 +3,9 @@ import { neon } from "@neondatabase/serverless"
 
 const sql = neon(process.env.DATABASE_URL!)
 
-export async function GET(request: Request, { params }: { params: { jobId: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ jobId: string }> }) {
   try {
-    const jobId = params.jobId
+    const { jobId } = await params
 
     const result = await sql`
       SELECT id, status, result_data, error_message, 
