@@ -141,7 +141,7 @@ export function OptimizationPanel() {
 
         setJobStatus(data.status)
       } catch (error) {
-        console.error("[v0] Polling error:", error)
+        console.error("Polling error:", error)
       }
     }
 
@@ -150,12 +150,6 @@ export function OptimizationPanel() {
 
     return () => clearInterval(interval)
   }, [jobId, jobStatus])
-
-  useEffect(() => {
-    console.log("[v0] availableVehicles:", availableVehicles.length)
-    console.log("[v0] optimizing:", optimizing)
-    console.log("[v0] Button disabled:", optimizing || availableVehicles.length === 0)
-  }, [availableVehicles, optimizing])
 
   async function fetchData() {
     try {
@@ -200,7 +194,6 @@ export function OptimizationPanel() {
             priority: o.priority || 3,
           }))
         setOrders(pendingOrders)
-        console.log("[v0] Loaded orders from API:", pendingOrders.length)
       }
     } catch (error) {
       console.error("[v0] Failed to fetch data:", error)
@@ -229,14 +222,6 @@ export function OptimizationPanel() {
   }
 
   async function handleOptimize() {
-    console.log("========================================")
-    console.log("[v0] OPTIMIZE BUTTON CLICKED!")
-    console.log("[v0] Starting optimization")
-    console.log("[v0] Algorithm:", algorithm)
-    console.log("[v0] Selected depots:", selectedDepots)
-    console.log("[v0] Orders:", orders.length)
-    console.log("========================================")
-
     if (selectedDepots.length === 0) {
       toast({
         title: "Hata",
@@ -257,9 +242,6 @@ export function OptimizationPanel() {
 
     const customersToOptimize = orders.map((o) => o.customerId)
 
-    console.log("[v0] Customers to optimize:", customersToOptimize.length)
-
-    // Check missing coordinates
     const missingCoords = customers
       .filter((c) => customersToOptimize.includes(c.id))
       .filter((c) => !c.lat || !c.lng || c.lat === 0 || c.lng === 0)
@@ -284,14 +266,7 @@ export function OptimizationPanel() {
     const vehiclesData = vehicles.filter((v) => v.status === "available")
     const customersData = customersToOptimize.map((id) => customers.find((c) => c.id === id)).filter(Boolean)
 
-    console.log("[v0] Request body:", {
-      depotsCount: depotsData.length,
-      vehiclesCount: vehiclesData.length,
-      customersCount: customersData.length,
-    })
-
     try {
-      console.log("[v0] Creating job...")
       const jobRes = await fetch("/api/optimize/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -313,7 +288,6 @@ export function OptimizationPanel() {
       }
 
       const jobData = await jobRes.json()
-      console.log("[v0] Job created:", jobData.jobId)
 
       setJobId(jobData.jobId)
       setJobStatus("pending")
