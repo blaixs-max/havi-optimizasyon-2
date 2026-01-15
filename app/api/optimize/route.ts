@@ -537,16 +537,14 @@ async function optimizeWithRailway(
       vehicleType: route.vehicle_type || "Kamyon",
       depotId: route.depot_id,
       depotName: route.depot_name || depotMap.get(route.depot_id)?.name || "Depo",
-      totalDistance: route.total_distance_km || 0,
-      distance: route.total_distance_km || 0, // Fallback field
-      totalDuration:
-        route.duration_minutes || route.total_duration_min || Math.round((route.total_distance_km / 60) * 60) || 0,
-      duration:
-        route.duration_minutes || route.total_duration_min || Math.round((route.total_distance_km / 60) * 60) || 0, // Fallback field
+      totalDistance: route.distance_km || route.total_distance_km || 0,
+      distance: route.distance_km || route.total_distance_km || 0,
+      totalDuration: route.duration_minutes || Math.round(((route.distance_km || 0) / 60) * 60) || 0,
+      duration: route.duration_minutes || Math.round(((route.distance_km || 0) / 60) * 60) || 0,
       totalCost: route.total_cost || 0,
-      totalLoad: route.total_load || route.total_pallets || 0, // Frontend expects totalLoad
-      load: route.total_load || route.total_pallets || 0, // Fallback field
-      totalPallets: route.total_load || route.total_pallets || 0,
+      totalLoad: route.total_pallets || route.total_load || 0,
+      load: route.total_pallets || route.total_load || 0,
+      totalPallets: route.total_pallets || route.total_load || 0,
       fuelCost: route.fuel_cost || 0,
       distanceCost: route.distance_cost || 0,
       fixedCost: route.fixed_cost || 0,
