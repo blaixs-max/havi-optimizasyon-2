@@ -83,8 +83,11 @@ export function OptimizationPanel() {
 
     progressInterval = setInterval(async () => {
       try {
+        console.log("[v0] Fetching job status for:", jobId)
         const res = await fetch(`/api/optimize/jobs?jobId=${jobId}`)
+        console.log("[v0] Job status response:", res.status)
         const data = await res.json()
+        console.log("[v0] Job status data:", data)
 
         setJobStatus(data.status)
 
