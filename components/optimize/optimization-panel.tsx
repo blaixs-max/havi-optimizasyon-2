@@ -224,6 +224,7 @@ export function OptimizationPanel() {
     setOptimizing(true)
     setOptimizeError(null)
     setProgress(10)
+    setResult(null) // Clear previous result
 
     const depotsData = selectedDepots.map((id) => depots.find((d) => d.id === id)).filter(Boolean)
     const vehiclesData = vehicles.filter((v) => v.status === "available")
@@ -234,9 +235,6 @@ export function OptimizationPanel() {
       vehiclesCount: vehiclesData.length,
       customersCount: customersData.length,
     })
-
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 70000)
 
     try {
       const jobRes = await fetch("/api/optimize/jobs", {
@@ -255,10 +253,13 @@ export function OptimizationPanel() {
       })
 
       if (!jobRes.ok) {
-        throw new Error("Job oluşturulamadı")
+        const errorData = await jobRes.json().catch(() => ({}))
+        throw new Error(errorData.error || "Job oluşturulamadı")
       }
 
       const jobData = await jobRes.json()
+      console.log("[v0] Job created:", jobData.jobId)
+
       setJobId(jobData.jobId)
       setJobStatus("pending")
       setProgress(20)
@@ -274,25 +275,14 @@ export function OptimizationPanel() {
         description: "Sonuçları beklerken sayfada kalabilirsiniz.",
       })
     } catch (error: any) {
-      clearInterval(progressInterval)
-
-      if (error.name === "AbortError") {
-        setOptimizeError("İstek zaman aşımına uğradı. Railway sunucusu yanıt vermedi. Lütfen tekrar deneyin.")
-        toast({
-          title: "Zaman Aşımı",
-          description: "Optimizasyon çok uzun sürdü. Lütfen tekrar deneyin veya daha az müşteri seçin.",
-          variant: "destructive",
-        })
-      } else {
-        setOptimizeError(error instanceof Error ? error.message : "Bilinmeyen hata")
-        toast({
-          title: "Hata",
-          description: error instanceof Error ? error.message : "Bilinmeyen hata",
-          variant: "destructive",
-        })
-      }
-    } finally {
+      console.error("[v0] Optimization error:", error)
       setOptimizing(false)
+      setOptimizeError(error instanceof Error ? error.message : "Bilinmeyen hata")
+      toast({
+        title: "Hata",
+        description: error instanceof Error ? error.message : "Bilinmeyen hata",
+        variant: "destructive",
+      })
     }
   }
 
