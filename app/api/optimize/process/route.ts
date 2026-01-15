@@ -42,18 +42,30 @@ export async function POST(request: Request) {
       if (!requestData.vehicles || requestData.vehicles.length === 0) {
         throw new Error("No vehicles provided")
       }
-      if (!requestData.customers || requestData.customers.length === 0) {
-        throw new Error("No customers provided")
+      if (!requestData.orders || requestData.orders.length === 0) {
+        throw new Error("No orders provided")
       }
+
+      const customerIds = requestData.orders.map((o: any) => o.customerId)
+      const customersResult = await sql`
+        SELECT id, name, lat, lng, service_duration_min, has_time_constraint, 
+               constraint_start_time, constraint_end_time, required_vehicle_type
+        FROM customers
+        WHERE id = ANY(${customerIds})
+      `
 
       const railwayRequest = {
         depots: requestData.depots.map((d: any) => ({
           id: d.id,
           name: d.name,
-          location: { lat: Number.parseFloat(d.lat), lng: Number.parseFloat(d.lng) },
+          location: {
+            lat: Number.parseFloat(d.lat),
+            lng: Number.parseFloat(d.lng),
+          },
         })),
         vehicles: requestData.vehicles.map((v: any) => ({
           id: v.id,
+          depot_id: v.depot_id,
           type:
             v.vehicle_type === "kamyonet"
               ? 0
@@ -65,13 +77,16 @@ export async function POST(request: Request) {
           capacity_pallets: v.capacity_pallets,
           fuel_consumption: v.fuel_consumption_per_100km,
         })),
-        customers: requestData.customers.map((c: any) => {
-          const order = requestData.orders?.find((o: any) => o.customer_id === c.id)
+        customers: customersResult.map((c: any) => {
+          const order = requestData.orders.find((o: any) => o.customerId === c.id)
           return {
             id: c.id,
             name: c.name,
-            location: { lat: Number.parseFloat(c.lat), lng: Number.parseFloat(c.lng) },
-            demand_pallets: order?.pallets || 5,
+            location: {
+              lat: Number.parseFloat(c.lat),
+              lng: Number.parseFloat(c.lng),
+            },
+            demand_pallets: order?.pallets || 0,
             business_type: "retail",
             service_duration: c.service_duration_min || 15,
             priority: order?.priority || 3,
@@ -82,16 +97,17 @@ export async function POST(request: Request) {
             required_vehicle_type: c.required_vehicle_type || null,
           }
         }),
-        algorithm: requestData.algorithm || "ortools",
-        fuel_price_per_liter: requestData.fuelPricePerLiter || 47.5,
-        max_route_distance_km: requestData.maxRouteDistanceKm || 500,
-        max_route_time_min: requestData.maxRouteTimeMin || 600,
+        algorithm: "ortools",
+        fuel_price_per_liter: 47.5,
+        max_route_distance_km: 500,
+        max_route_time_min: 600,
       }
 
       console.log("[v0] Railway request summary:", {
         depots: railwayRequest.depots.length,
         vehicles: railwayRequest.vehicles.length,
         customers: railwayRequest.customers.length,
+        sampleDepot: railwayRequest.depots[0],
         sampleCustomer: railwayRequest.customers[0],
         sampleVehicle: railwayRequest.vehicles[0],
       })
