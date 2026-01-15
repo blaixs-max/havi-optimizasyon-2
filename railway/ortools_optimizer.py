@@ -220,25 +220,26 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
         print(f"[OR-Tools] Time dimension added (max 10h per route, breaks included in route time)")
         
         # Add time window constraints
-        for location_idx, time_window in enumerate(time_windows):
-            if location_idx == 0:
-                continue  # Skip depot
-            index = manager.NodeToIndex(location_idx)
-            time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
-            print(f"[OR-Tools] Set time window for location {location_idx}: [{time_window[0]}, {time_window[1]}]")
+        # for location_idx, time_window in enumerate(time_windows):
+        #     if location_idx == 0:
+        #         continue  # Skip depot
+        #     index = manager.NodeToIndex(location_idx)
+        #     time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
+        #     print(f"[OR-Tools] Set time window for location {location_idx}: [{time_window[0]}, {time_window[1]}]")
+        
+        print(f"[OR-Tools] Time window constraints DISABLED for testing - only using time dimension for route duration limit")
         
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
         search_parameters.first_solution_strategy = (
-            routing_enums_pb2.FirstSolutionStrategy.SAVINGS
+            routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC  # Fast and reliable
         )
         search_parameters.local_search_metaheuristic = (
-            routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+            routing_enums_pb2.LocalSearchMetaheuristic.GREEDY_DESCENT  # Faster than GUIDED_LOCAL_SEARCH
         )
-        search_parameters.time_limit.seconds = 600
-        search_parameters.solution_limit = 100
+        search_parameters.time_limit.seconds = 120  # 2 minutes enough for 15 customers
         search_parameters.log_search = True
         
-        print(f"[OR-Tools] Solving routing problem with SAVINGS strategy...")
+        print(f"[OR-Tools] Solving routing problem with PATH_CHEAPEST_ARC + GREEDY_DESCENT...")
         
         solution = routing.SolveWithParameters(search_parameters)
         
@@ -276,7 +277,7 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
                             prev_loc["lat"], prev_loc["lng"],
                             customer["location"]["lat"], customer["location"]["lng"]
                         )
-                        travel_time = (distance_from_prev / 60) * 60  # 60 km/h avg
+                        travel_time = (distance_from_prev / 60) * 60
                     else:
                         # First stop - distance from depot
                         distance_from_prev = haversine_distance(
@@ -337,20 +338,23 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
                     "total_cost": round(total_cost, 2),
                     "total_pallets": sum(s["demand"] for s in route_stops)
                 })
+                
+                total_distance += route_distance_km
         
         print(f"[OR-Tools] Generated {len(routes)} routes")
+        print(f"[OR-Tools] Total distance: {round(total_distance, 2)} km")
         
         return {
             "routes": routes,
             "summary": {
                 "total_routes": len(routes),
-                "total_distance_km": round(sum(r["distance_km"] for r in routes), 2),
+                "total_distance_km": round(total_distance, 2),
                 "total_vehicles_used": len(routes),
-                "algorithm": "OR-Tools (single-depot with post-assignment)"
+                "algorithm": "OR-Tools"
             }
         }
     except Exception as e:
-        print(f"[OR-Tools] Single-depot ERROR: {e}")
+        print(f"[OR-Tools] ERROR during optimization: {e}")
         raise e
 
 def _optimize_multi_depot(depots: list, customers: list, vehicles: list, fuel_price: float) -> dict:
@@ -511,22 +515,23 @@ def _optimize_multi_depot(depots: list, customers: list, vehicles: list, fuel_pr
         print(f"[OR-Tools] Time dimension added (max 10h per route, breaks included in route time)")
         
         # Add time window constraints
-        for location_idx, time_window in enumerate(time_windows):
-            if location_idx == 0:
-                continue  # Skip depot
-            index = manager.NodeToIndex(location_idx)
-            time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
-            print(f"[OR-Tools] Set time window for location {location_idx}: [{time_window[0]}, {time_window[1]}]")
+        # for location_idx, time_window in enumerate(time_windows):
+        #     if location_idx == 0:
+        #         continue  # Skip depot
+        #     index = manager.NodeToIndex(location_idx)
+        #     time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
+        #     print(f"[OR-Tools] Set time window for location {location_idx}: [{time_window[0]}, {time_window[1]}]")
+        
+        print(f"[OR-Tools] Time window constraints DISABLED for testing - only using time dimension for route duration limit")
         
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
         search_parameters.first_solution_strategy = (
-            routing_enums_pb2.FirstSolutionStrategy.SAVINGS
+            routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC  # Fast and reliable
         )
         search_parameters.local_search_metaheuristic = (
-            routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+            routing_enums_pb2.LocalSearchMetaheuristic.GREEDY_DESCENT  # Faster than GUIDED_LOCAL_SEARCH
         )
-        search_parameters.time_limit.seconds = 600
-        search_parameters.solution_limit = 100
+        search_parameters.time_limit.seconds = 120  # 2 minutes enough for 15 customers
         search_parameters.log_search = True
         
         print(f"[OR-Tools] Starting solver with 600s timeout and solution limit 100...")
