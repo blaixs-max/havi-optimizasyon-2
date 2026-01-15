@@ -27,6 +27,12 @@ async function optimizeWithRailway(
       name: c.name,
       location: { lat: c.lat, lng: c.lng },
       demand_pallets: c.demand_pallets || 1,
+      business_type: c.business_type || "restaurant",
+      service_duration: c.service_duration || 30,
+      has_time_constraint: c.has_time_constraint || false,
+      constraint_start_time: c.constraint_start_time || null,
+      constraint_end_time: c.constraint_end_time || null,
+      required_vehicle_types: c.required_vehicle_types || null,
     })),
     vehicles: vehicles.map((v) => ({
       id: v.id,
