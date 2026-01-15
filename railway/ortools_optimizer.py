@@ -14,11 +14,11 @@ SERVICE_TIMES = {
 
 # Araç tipleri: kapasite ve yakıt tüketimi
 VEHICLE_TYPES = {
-    1: {"name": "Kamyonet", "capacity": 10, "fuel": 15},
-    2: {"name": "Kamyon-1", "capacity": 14, "fuel": 20},
-    3: {"name": "Kamyon-2", "capacity": 18, "fuel": 30},
-    4: {"name": "TIR", "capacity": 32, "fuel": 35},
-    5: {"name": "Romork", "capacity": 36, "fuel": 40}
+    0: {"name": "Kamyonet", "capacity": 10, "fuel": 15},
+    1: {"name": "Kamyon-1", "capacity": 14, "fuel": 20},
+    2: {"name": "Kamyon-2", "capacity": 18, "fuel": 30},
+    3: {"name": "TIR", "capacity": 32, "fuel": 35},
+    4: {"name": "Romork", "capacity": 36, "fuel": 40}
 }
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -80,10 +80,13 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
     try:
         total_distance = 0
         
+        print(f"[OR-Tools] ===== ADIM 1 TEST: DISTANCE + CAPACITY ONLY =====")
         print(f"[OR-Tools] Starting single-depot optimization...")
         print(f"[OR-Tools] Primary depot: {primary_depot.get('name', primary_depot.get('id'))}")
         print(f"[OR-Tools] Customers: {len(customers)}")
         print(f"[OR-Tools] Vehicles: {len(vehicles)}")
+        print(f"[OR-Tools] Sample customer 0: {customers[0] if customers else 'NONE'}")
+        print(f"[OR-Tools] Sample vehicle 0: {vehicles[0] if vehicles else 'NONE'}")
         
         depot_lat = primary_depot["location"]["lat"]
         depot_lng = primary_depot["location"]["lng"]
@@ -164,9 +167,7 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
         
         print(f"[OR-Tools] Capacity dimension added")
         
-        # routing.AddDimension(...)
-        # time_dimension = routing.GetDimensionOrDie('Time')
-        
+        print(f"[OR-Tools] ===== TIME DIMENSION: DISABLED =====")
         print(f"[OR-Tools] Using DISTANCE-ONLY optimization (no time constraints)")
         
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
@@ -177,8 +178,11 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
         search_parameters.log_search = True
         
         print(f"[OR-Tools] Solving with PATH_CHEAPEST_ARC strategy (20s limit)...")
+        print(f"[OR-Tools] About to call SolveWithParameters()...")
         
         solution = routing.SolveWithParameters(search_parameters)
+        
+        print(f"[OR-Tools] SolveWithParameters() returned, solution exists: {solution is not None}")
         
         if not solution:
             status = routing.status()
