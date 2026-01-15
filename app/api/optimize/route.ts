@@ -386,10 +386,10 @@ async function warmupRailway(): Promise<void> {
 }
 
 async function optimizeWithRailway(
-  depots: Depot[],
-  vehicles: Vehicle[],
-  customers: Customer[],
-  orders: { customerId: string; pallets: number; priority?: number }[],
+  depots: any[],
+  vehicles: any[],
+  customers: any[],
+  orders: any[],
   options: {
     algorithm?: "ortools" | "local"
     fuelPricePerLiter?: number
@@ -531,110 +531,52 @@ async function optimizeWithRailway(
     const customerMap = new Map(customers.map((c) => [c.id, c]))
     const depotMap = new Map(depots.map((d) => [d.id, d]))
 
-    const formattedRoutes = await Promise.all(
-      railwayResult.routes.map(async (route: any) => {
-        const vehicleId = route.vehicle_id || route.vehicleId
-        const vehicle = vehicleMap.get(vehicleId)
-        const vehicleName = vehicle?.plate || vehicle?.name || `Araç ${vehicleId}`
-        const vehiclePlate = vehicle?.plate || vehicle?.name || `Araç ${vehicleId}`
+    const formattedRoutes = railwayResult.routes.map((route: any, index: number) => {
+      const vehicle = vehicleMap.get(route.vehicle_id)
+      const depot = findNearestDepot(route.stops[0], depots)
 
-        const firstStop = route.stops?.[0]
-        let depot = depots[0]
+      // Calculate estimated duration from distance (60 km/h average)
+      const estimatedDurationMinutes = Math.round((route.total_distance_km / 60) * 60)
 
-        if (firstStop && depots.length > 1) {
-          const firstStopLat = firstStop.location?.lat || 0
-          const firstStopLng = firstStop.location?.lng || 0
-
-          let minDistance = Number.POSITIVE_INFINITY
-          for (const d of depots) {
-            const distance = haversineDistance(firstStopLat, firstStopLng, d.lat, d.lng)
-            if (distance < minDistance) {
-              minDistance = distance
-              depot = d
-            }
-          }
-        }
-
-        const stops = (route.stops || []).map((stop: any, index: number) => {
-          const customerId = stop.customer_id || stop.customerId
-          const customer = customerMap.get(customerId)
-
-          // Distance from previous stop - Railway'den 0 gelirse hesapla
-          let distanceFromPrev = stop.distance_from_prev || stop.distanceFromPrev || 0
-
-          if (distanceFromPrev === 0 && index > 0) {
-            const prevStop = route.stops[index - 1]
-            const prevLat = prevStop.location?.lat || 0
-            const prevLng = prevStop.location?.lng || 0
-            const currLat = stop.location?.lat || customer?.lat || 0
-            const currLng = stop.location?.lng || customer?.lng || 0
-
-            if (prevLat && prevLng && currLat && currLng) {
-              distanceFromPrev = haversineDistance(prevLat, prevLng, currLat, currLng)
-            }
-          } else if (distanceFromPrev === 0 && index === 0) {
-            // First stop - distance from depot
-            const currLat = stop.location?.lat || customer?.lat || 0
-            const currLng = stop.location?.lng || customer?.lng || 0
-
-            if (depot.lat && depot.lng && currLat && currLng) {
-              distanceFromPrev = haversineDistance(depot.lat, depot.lng, currLat, currLng)
-            }
-          }
-
+      return {
+        vehicleId: route.vehicle_id || vehicle?.id || `vehicle-${index}`,
+        vehiclePlate: vehicle?.license_plate || `Araç ${index + 1}`,
+        vehicleType: vehicle?.type || "Kamyon",
+        depotId: depot?.id,
+        depotName: depot?.name || depot?.city,
+        totalDistance: route.total_distance_km || 0,
+        totalDuration: estimatedDurationMinutes, // Estimated duration
+        totalCost: route.total_cost || 0,
+        totalPallets: route.total_load || 0,
+        fuelCost: route.fuel_cost || 0,
+        distanceCost: route.distance_cost || 0,
+        fixedCost: route.fixed_cost || 0,
+        tollCost: route.toll_cost || 0,
+        stops: route.stops.map((stop: any, stopIndex: number) => {
+          const customer = customerMap.get(stop.customer_id)
+          const order = orders.find((o: any) => o.customerId === stop.customer_id)
           return {
-            customerId,
-            customerName: customer?.name || stop.customer_name || "Bilinmeyen",
+            stopOrder: stopIndex + 1,
+            customerId: stop.customer_id,
+            customerName: customer?.name || `Customer ${stopIndex + 1}`,
             address: customer?.address || "",
-            lat: stop.location?.lat || customer?.lat || 0,
-            lng: stop.location?.lng || customer?.lng || 0,
-            stopOrder: stop.stop_order || stop.stopOrder || 0,
-            arrivalTime: stop.arrival_time || 0,
-            serviceTime: stop.service_time || stop.serviceTime || 15,
-            distanceFromPrev: Math.round(distanceFromPrev * 10) / 10,
-            demand: stop.demand || customer?.demand_pallet || 1,
+            lat: customer?.lat || 0,
+            lng: customer?.lng || 0,
+            latitude: customer?.lat || 0,
+            longitude: customer?.lng || 0,
+            demand: order?.pallets || 0,
+            distanceFromPrev: stop.distance_from_prev_km || 0,
+            durationFromPrev: Math.round((stop.distance_from_prev_km / 60) * 60) || 0, // Estimated duration
+            cumulativeDistance: stop.cumulative_distance_km || 0,
             cumulativeLoad: stop.cumulative_load || 0,
+            arrivalTime: stop.arrival_time || null,
           }
-        })
+        }),
+        geometry: route.geometry || [], // Include geometry if available
+      }
+    })
 
-        const totalLoad = stops.reduce((sum: number, s: any) => sum + (s.demand || 0), 0)
-
-        const routePoints: [number, number][] = [
-          [depot.lng, depot.lat],
-          ...stops.map((s: any) => [s.lng, s.lat] as [number, number]),
-          [depot.lng, depot.lat],
-        ]
-
-        const geometry = await getRouteGeometry(routePoints)
-
-        return {
-          vehicleId,
-          vehicleName,
-          vehiclePlate,
-          depotId: depot.id,
-          depotName: depot.name,
-          stops,
-          totalDistance: route.distance_km || route.totalDistance || 0,
-          totalDuration: route.duration_minutes || route.totalDuration || 0,
-          totalCost: route.total_cost || route.totalCost || 0,
-          fuelCost: route.fuel_cost || route.fuelCost || 0,
-          fixedCost: route.fixed_cost || route.fixedCost || 0,
-          distanceCost: route.distance_cost || route.distanceCost || 0,
-          tollCost: route.toll_cost || route.tollCost || 0,
-          totalLoad,
-          capacityUtilization: Math.round((totalLoad / (vehicle?.capacity_pallet || 12)) * 100),
-          geometry: geometry || null,
-        }
-      }),
-    )
-
-    const totalDistance = formattedRoutes.reduce((sum, r) => sum + (r.totalDistance || 0), 0)
-    const totalDuration = formattedRoutes.reduce((sum, r) => sum + (r.totalDuration || 0), 0)
-    const totalCost = formattedRoutes.reduce((sum, r) => sum + (r.totalCost || 0), 0)
-    const totalFuelCost = formattedRoutes.reduce((sum, r) => sum + (r.fuelCost || 0), 0)
-    const totalFixedCost = formattedRoutes.reduce((sum, r) => sum + (r.fixedCost || 0), 0)
-    const totalDistanceCost = formattedRoutes.reduce((sum, r) => sum + (r.distanceCost || 0), 0)
-    const totalTollCost = formattedRoutes.reduce((sum, r) => sum + (r.tollCost || 0), 0)
+    const totalDuration = formattedRoutes.reduce((sum: number, route: any) => sum + (route.totalDuration || 0), 0)
 
     return {
       success: true,
@@ -642,14 +584,15 @@ async function optimizeWithRailway(
       provider: "ortools-railway",
       summary: {
         totalRoutes: formattedRoutes.length,
-        totalDistance: Math.round(totalDistance * 100) / 100,
-        totalDuration: Math.round(totalDuration),
-        totalCost: Math.round(totalCost * 100) / 100,
-        fuelCost: Math.round(totalFuelCost * 100) / 100,
-        fixedCost: Math.round(totalFixedCost * 100) / 100,
-        distanceCost: Math.round(totalDistanceCost * 100) / 100,
-        tollCost: Math.round(totalTollCost * 100) / 100,
+        totalDistance: Math.round((railwayResult.total_distance_km || 0) * 10) / 10,
+        totalDuration: totalDuration,
+        totalCost: Math.round((railwayResult.total_cost || 0) * 100) / 100,
+        fuelCost: Math.round((railwayResult.total_fuel_cost || 0) * 100) / 100,
+        fixedCost: Math.round((railwayResult.total_fixed_cost || 0) * 100) / 100,
+        distanceCost: Math.round((railwayResult.total_distance_cost || 0) * 100) / 100,
+        tollCost: Math.round((railwayResult.total_toll_cost || 0) * 100) / 100,
         unassignedCount: 0,
+        computationTimeMs: Date.now() - options.algorithm ? 0 : Date.now(), // Add computation time
       },
       routes: formattedRoutes,
       unassigned: [],

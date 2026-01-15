@@ -352,10 +352,27 @@ export function OptimizationPanel() {
                 </Select>
                 <p className="text-xs text-muted-foreground">
                   {algorithm === "ortools"
-                    ? "Tüm kısıtları destekler: zaman penceresi, mola, servis süresi"
+                    ? "Mesafe ve kapasite optimizasyonu (Time constraints test için kapalı)"
                     : "Hızlı çözüm, sınırlı kısıt desteği"}
                 </p>
               </div>
+
+              {algorithm === "ortools" && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs font-medium text-blue-800 mb-2">Aktif Kısıtlar:</p>
+                  <ul className="text-xs text-blue-700 space-y-1">
+                    <li>✓ Mesafe optimizasyonu</li>
+                    <li>✓ Kapasite kısıtları</li>
+                    <li>✓ Araç-depo eşleştirme</li>
+                  </ul>
+                  <p className="text-xs font-medium text-blue-800 mt-2 mb-1">Test için Kapalı:</p>
+                  <ul className="text-xs text-blue-700 space-y-1">
+                    <li>○ Zaman pencereleri</li>
+                    <li>○ Araç tipi kısıtları</li>
+                    <li>○ Mola kuralları</li>
+                  </ul>
+                </div>
+              )}
 
               <Separator />
 
