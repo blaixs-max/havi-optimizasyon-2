@@ -14,7 +14,7 @@ async function optimizeWithRailway(
     throw new Error("Railway API URL not configured")
   }
 
-  const railwayRequest = {
+  const railwayRequest: any = {
     depots: depots.map((d) => ({
       id: d.id,
       name: d.name,
@@ -40,6 +40,15 @@ async function optimizeWithRailway(
       plate: v.plate || v.license_plate || `Araç ${v.id}`,
     })),
     fuel_price: options.fuelPricePerLiter || 47.5,
+  }
+
+  // OR-Tools config parametrelerini ekle
+  if (options.ortoolsConfig) {
+    railwayRequest.time_limit_seconds = options.ortoolsConfig.time_limit_seconds
+    railwayRequest.search_strategy = options.ortoolsConfig.search_strategy
+    railwayRequest.use_local_search = options.ortoolsConfig.use_local_search
+    railwayRequest.enable_time_windows = options.ortoolsConfig.enable_time_windows
+    console.log("[optimize] Sending OR-Tools config to Railway:", options.ortoolsConfig)
   }
 
   const railwayResponse = await fetch(`${process.env.RAILWAY_API_URL}/optimize`, {
@@ -107,6 +116,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { depots, algorithm = "ortools" } = body
     const { vehicles, customers, orders = [] } = body
+    const { fuelPricePerLiter = 47.5, ortoolsConfig } = body
 
     if (!depots || !vehicles || !customers) {
       return NextResponse.json({ success: false, error: "Missing required data" }, { status: 400 })
@@ -115,7 +125,8 @@ export async function POST(req: NextRequest) {
     const availableVehicles = vehicles.filter((v: any) => v.status === "available")
 
     const result = await optimizeWithRailway(depots, availableVehicles, customers, orders, {
-      fuelPricePerLiter: 47.5,
+      fuelPricePerLiter,
+      ortoolsConfig,
     })
 
     return NextResponse.json(result)
