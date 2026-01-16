@@ -498,6 +498,9 @@ def _optimize_multi_depot(
         depot_vehicles = {}  # depot_id -> list of vehicles
         vehicles_copy = vehicles.copy()
 
+        # Sort vehicles by capacity (descending) - allocate large vehicles first
+        vehicles_copy.sort(key=lambda v: v.get("capacity_pallets", 26), reverse=True)
+
         # Sort depots by demand (descending)
         sorted_depot_ids = sorted(depot_demands.keys(), key=lambda d: depot_demands[d], reverse=True)
 
@@ -510,9 +513,10 @@ def _optimize_multi_depot(
                 depot_vehicles[depot_id] = []
                 continue
 
-            # Allocate vehicles to meet demand
+            # Allocate vehicles to meet demand (with 20% buffer)
             depot_vehicles[depot_id] = []
             allocated_capacity = 0
+            target_capacity = int(depot_demand * 1.2)  # 20% buffer
 
             for vehicle in vehicles_copy[:]:
                 vehicle_capacity = vehicle.get("capacity_pallets", 26)
@@ -520,9 +524,17 @@ def _optimize_multi_depot(
                 allocated_capacity += vehicle_capacity
                 vehicles_copy.remove(vehicle)
 
-                # Stop when we have enough capacity or no more vehicles
-                if allocated_capacity >= depot_demand or len(vehicles_copy) == 0:
+                # Stop when we have enough capacity (with buffer) or no more vehicles
+                if allocated_capacity >= target_capacity or len(vehicles_copy) == 0:
                     break
+
+                # Minimum: must meet actual demand
+                if allocated_capacity >= depot_demand and len(vehicles_copy) > 0:
+                    # Check if we're close to target, if not add one more
+                    if allocated_capacity < depot_demand * 1.1:
+                        continue
+                    else:
+                        break
 
             depot_name = next((d.get("name", depot_id) for d in depots if d["id"] == depot_id), depot_id)
             print(f"[OR-Tools]   {depot_name}: {len(depot_vehicles[depot_id])} vehicles (capacity: {allocated_capacity}, demand: {depot_demand})")
