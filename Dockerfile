@@ -11,7 +11,7 @@ COPY requirements-railway.txt .
 RUN pip install --no-cache-dir -r requirements-railway.txt
 
 # Force cache invalidation for optimizer files
-ARG CACHE_BUST=2026-01-18
+ARG CACHE_BUST=2026-01-18-20:10
 RUN echo "Cache bust: ${CACHE_BUST}"
 
 # Copy Python backend files - v2 optimizer (optimized version)
