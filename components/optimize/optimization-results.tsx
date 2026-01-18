@@ -78,41 +78,42 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
     // Save logic here
   }
 
-  // Tek useEffect ile map initialization ve güncelleme
   useEffect(() => {
-    // Sadece map tab'ı açıksa ve container hazırsa
-    if (viewMode !== "map" || !mapRef.current) {
-      return
-    }
+    // Leaflet loading logic here
+  }, [])
+
+  useEffect(() => {
+    // Map readiness logic here
+  }, [viewMode])
+
+  useEffect(() => {
+    // Map rendering logic here
+  }, [viewMode, result.routes, depots])
+
+  useEffect(() => {
+    if (viewMode !== "map" || !mapRef.current) return
+    if (mapInstanceRef.current) return // Already initialized
 
     const initMap = async () => {
       try {
         const L = (await import("leaflet")).default
         await import("leaflet/dist/leaflet.css")
 
-        // Eğer map zaten varsa, sadece layer'ları temizle ve yeniden çiz
+        // Container zaten map varsa temizle
         if (mapInstanceRef.current) {
-          // Mevcut layer'ları temizle
-          mapInstanceRef.current.eachLayer((layer: any) => {
-            if (layer instanceof L.Marker || layer instanceof L.Polyline || layer instanceof L.CircleMarker) {
-              mapInstanceRef.current.removeLayer(layer)
-            }
-          })
-        } else {
-          // İlk kez oluştur
-          const map = L.map(mapRef.current!, {
-            center: [39.9334, 32.8597], // Turkiye merkezi
-            zoom: 6,
-          })
-
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-          }).addTo(map)
-
-          mapInstanceRef.current = map
+          mapInstanceRef.current.remove()
         }
 
-        const map = mapInstanceRef.current
+        const map = L.map(mapRef.current!, {
+          center: [39.9334, 32.8597], // Turkiye merkezi
+          zoom: 6,
+        })
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        }).addTo(map)
+
+        mapInstanceRef.current = map
 
         // Rotalari haritaya ekle
         if (result.routes && result.routes.length > 0) {
@@ -201,19 +202,13 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
 
     initMap()
 
-    // Cleanup: sadece component unmount olduğunda map'i temizle
-    // viewMode değiştiğinde map instance'ı koru
-  }, [viewMode, result.routes, depots])
-
-  // Component unmount olduğunda map'i temizle
-  useEffect(() => {
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
       }
     }
-  }, [])
+  }, [viewMode, result.routes, depots])
 
   if (!result.success) {
     return (

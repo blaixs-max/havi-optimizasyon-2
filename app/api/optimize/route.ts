@@ -1,7 +1,389 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import type { Depot, Vehicle, Customer } from "@/lib/types"
+import { ORSClient } from "@/lib/ors-client"
+import { decodePolyline } from "@/lib/polyline"
+import { calculateTollCosts } from "@/lib/toll-calculator"
 
-const sql = neon(process.env.DATABASE_URL!)
+console.log("[v0] ORS_API_KEY exists:", !!process.env.ORS_API_KEY)
+console.log("[v0] RAILWAY_API_URL:", process.env.RAILWAY_API_URL)
+
+// Haversine mesafe hesaplama (fallback için)
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+function encodePolyline(coordinates: [number, number][]): string {
+  if (!coordinates || coordinates.length === 0) return ""
+
+  let output = ""
+  let prevLat = 0
+  let prevLng = 0
+
+  for (const [lng, lat] of coordinates) {
+    const latE5 = Math.round(lat * 1e5)
+    const lngE5 = Math.round(lng * 1e5)
+
+    const dLat = latE5 - prevLat
+    const dLng = lngE5 - prevLng
+
+    output += encodeValue(dLat)
+    output += encodeValue(dLng)
+
+    prevLat = latE5
+    prevLng = lngE5
+  }
+
+  return output
+}
+
+function encodeValue(value: number): string {
+  let encoded = ""
+  let v = value < 0 ? ~(value << 1) : value << 1
+
+  while (v >= 0x20) {
+    encoded += String.fromCharCode((0x20 | (v & 0x1f)) + 63)
+    v >>= 5
+  }
+  encoded += String.fromCharCode(v + 63)
+
+  return encoded
+}
+
+async function getRouteGeometry(coordinates: [number, number][]): Promise<string> {
+  if (coordinates.length < 2) return ""
+
+  try {
+    const response = await fetch(`https://api.openrouteservice.org/v2/directions/driving-hgv/geojson`, {
+      method: "POST",
+      headers: {
+        Authorization: process.env.ORS_API_KEY || "",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        coordinates: coordinates,
+        instructions: false,
+        elevation: false,
+      }),
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) {
+      console.warn("[v0] ORS geometry failed, falling back to straight lines")
+      return encodePolyline(coordinates)
+    }
+
+    const data = await response.json()
+    const orsCoordinates = data.features?.[0]?.geometry?.coordinates || []
+    if (orsCoordinates.length > 0) {
+      return encodePolyline(orsCoordinates)
+    }
+    return encodePolyline(coordinates)
+  } catch (error) {
+    console.warn("[v0] ORS geometry error:", error)
+    return encodePolyline(coordinates)
+  }
+}
+
+// ORS Optimization API ile rota optimizasyonu
+async function optimizeWithORS(
+  depots: Depot[],
+  vehicles: Vehicle[],
+  customers: Customer[],
+  options: {
+    fuelPricePerLiter: number
+    maxRouteDistanceKm?: number
+    maxRouteTimeMin?: number
+    vehicleCapacityUtilization?: number
+  },
+) {
+  const startTime = Date.now()
+  const client = new ORSClient(process.env.ORS_API_KEY!)
+
+  // Kullanılabilir araçları filtrele
+  const availableVehicles = vehicles.filter((v) => v.status === "active" || v.status === "available" || !v.status)
+
+  if (availableVehicles.length === 0) {
+    throw new Error("Kullanılabilir araç bulunamadı")
+  }
+
+  // Müşterileri depolara göre grupla
+  const customersByDepot = new Map<string, Customer[]>()
+  for (const depot of depots) {
+    customersByDepot.set(depot.id, [])
+  }
+
+  for (const customer of customers) {
+    if (customer.assigned_depot_id && customersByDepot.has(customer.assigned_depot_id)) {
+      customersByDepot.get(customer.assigned_depot_id)!.push(customer)
+    } else {
+      // En yakın depoya ata
+      let minDist = Number.POSITIVE_INFINITY
+      let closestDepot = depots[0]
+      for (const depot of depots) {
+        const dist = haversineDistance(customer.lat, customer.lng, depot.lat, depot.lng)
+        if (dist < minDist) {
+          minDist = dist
+          closestDepot = depot
+        }
+      }
+      customersByDepot.get(closestDepot.id)!.push(customer)
+    }
+  }
+
+  const allRoutes: any[] = []
+  const allUnassigned: string[] = []
+
+  // Her depo için ayrı optimizasyon yap
+  for (const depot of depots) {
+    const depotCustomers = customersByDepot.get(depot.id) || []
+    if (depotCustomers.length === 0) continue
+
+    // Bu depoya ait araçları al
+    let depotVehicles = availableVehicles.filter((v) => v.depot_id === depot.id)
+    if (depotVehicles.length === 0) {
+      depotVehicles = availableVehicles.filter((v) => !allRoutes.some((r) => r.vehicleId === v.id)).slice(0, 3)
+    }
+
+    if (depotVehicles.length === 0) {
+      allUnassigned.push(...depotCustomers.map((c) => c.id))
+      continue
+    }
+
+    // Araçları 3'erli gruplara böl (ORS limiti)
+    const vehicleBatches: Vehicle[][] = []
+    for (let i = 0; i < depotVehicles.length; i += 3) {
+      vehicleBatches.push(depotVehicles.slice(i, i + 3))
+    }
+
+    let remainingCustomers = [...depotCustomers]
+
+    // Her batch için ORS çağır
+    for (const vehicleBatch of vehicleBatches) {
+      if (remainingCustomers.length === 0) break
+
+      const batchCapacity = vehicleBatch.reduce((sum, v) => {
+        const cap = (v.capacity_pallet || v.capacity_pallets || 12) * (options.vehicleCapacityUtilization || 0.9)
+        return sum + Math.floor(cap)
+      }, 0)
+
+      const batchCustomers = remainingCustomers.slice(0, Math.min(remainingCustomers.length, batchCapacity + 5))
+
+      if (batchCustomers.length === 0) continue
+
+      const jobs = batchCustomers.map((customer, index) => ({
+        id: index + 1,
+        location: [customer.lng, customer.lat] as [number, number],
+        service: 900,
+        amount: [customer.demand_pallets || customer.demand_pallet || 1],
+      }))
+
+      const orsVehicles = vehicleBatch.map((vehicle, index) => {
+        const capacity = Math.floor(
+          (vehicle.capacity_pallet || vehicle.capacity_pallets || 12) * (options.vehicleCapacityUtilization || 0.9),
+        )
+
+        return {
+          id: index + 1,
+          profile: "driving-hgv" as const,
+          start: [depot.lng, depot.lat] as [number, number],
+          end: [depot.lng, depot.lat] as [number, number],
+          capacity: [capacity],
+          time_window: options.maxRouteTimeMin ? ([0, options.maxRouteTimeMin * 60] as [number, number]) : undefined,
+        }
+      })
+
+      try {
+        const response = await client.optimize({
+          jobs,
+          vehicles: orsVehicles,
+          geometry: true,
+        })
+
+        const assignedCustomerIndices = new Set<number>()
+
+        for (const route of response.routes || []) {
+          const vehicleIndex = route.vehicle - 1
+          const vehicle = vehicleBatch[vehicleIndex]
+
+          const routeDistanceKm = (route.distance || 0) / 1000
+          const routeDurationMin = (route.duration || 0) / 60
+
+          const stops = (route.steps || [])
+            .filter((step) => step.type === "job")
+            .map((step, stopIndex) => {
+              const customerIndex = (step.id || step.job || 1) - 1
+              assignedCustomerIndices.add(customerIndex)
+              const customer = batchCustomers[customerIndex]
+              return {
+                customerId: customer?.id || `unknown-${stopIndex}`,
+                customerName: customer?.name || "Bilinmeyen",
+                address: customer?.address || "",
+                lat: step.location?.[1] || customer?.lat || 0,
+                lng: step.location?.[0] || customer?.lng || 0,
+                stopOrder: stopIndex + 1,
+                arrivalTime: Math.round((step.arrival || 0) / 60),
+                serviceTime: Math.round((step.service || 900) / 60),
+                distanceFromPrev: Math.round(((step.distance || 0) / 1000) * 100) / 100,
+                demand: customer?.demand_pallets || customer?.demand_pallet || 1,
+                cumulativeLoad: step.load?.[0] || 0,
+              }
+            })
+
+          if (stops.length === 0) continue
+
+          let totalDistance = routeDistanceKm
+          let totalDuration = routeDurationMin
+          let distanceSource = "ors" // Debug için kaynak takibi
+
+          // ORS mesafe dönmezse Haversine fallback
+          if (totalDistance === 0 && stops.length > 0) {
+            distanceSource = "haversine" // Fallback kullaniliyor
+            totalDistance = haversineDistance(depot.lat, depot.lng, stops[0].lat, stops[0].lng)
+            for (let i = 1; i < stops.length; i++) {
+              totalDistance += haversineDistance(stops[i - 1].lat, stops[i - 1].lng, stops[i].lat, stops[i].lng)
+            }
+            totalDistance += haversineDistance(
+              stops[stops.length - 1].lat,
+              stops[stops.length - 1].lng,
+              depot.lat,
+              depot.lng,
+            )
+            totalDuration = (totalDistance / 50) * 60 + stops.length * 15
+          }
+
+          const routePoints = [
+            { lat: depot.lat, lng: depot.lng },
+            ...stops.map((s) => ({ lat: s.lat, lng: s.lng })),
+            { lat: depot.lat, lng: depot.lng },
+          ]
+          const vehicleType = vehicle?.vehicle_type || "truck"
+
+          let geometryPoints: { lat: number; lng: number }[] = routePoints
+
+          if (route.geometry && typeof route.geometry === "string" && route.geometry.length > 10) {
+            // Encoded polyline decode
+            try {
+              geometryPoints = decodePolyline(route.geometry)
+            } catch (e) {
+              // Decode hatasi - routePoints kullan
+            }
+          } else {
+            // ORS Directions API ile gerçek rota geometrisi al
+            try {
+              geometryPoints = await client.getRouteGeometry(routePoints, "driving-hgv")
+            } catch (e) {
+              // Directions API hatasi - routePoints kullan
+            }
+          }
+
+          const tollCalculation = calculateTollCosts(geometryPoints, vehicleType, totalDistance)
+
+          const fuelConsumption = (totalDistance / 100) * (vehicle?.fuel_consumption_per_100km || 25)
+          const fuelCost = fuelConsumption * options.fuelPricePerLiter
+          const distanceCost = totalDistance * (vehicle?.cost_per_km || 2)
+          const fixedCost = vehicle?.fixed_daily_cost || 500
+          const tollCost = tollCalculation.totalTollCost
+          const totalCost = fuelCost + distanceCost + fixedCost + tollCost
+          const vehicleCapacity = vehicle?.capacity_pallet || vehicle?.capacity_pallets || 12
+          const totalLoad = stops.reduce((sum, s) => sum + s.demand, 0)
+
+          allRoutes.push({
+            vehicleId: vehicle?.id || `vehicle-${route.vehicle}`,
+            vehiclePlate: vehicle?.plate || `Araç ${route.vehicle}`,
+            vehicleType: vehicle?.vehicle_type || "truck",
+            depotId: depot.id,
+            depotName: depot.name,
+            stops,
+            totalDistance: Math.round(totalDistance * 100) / 100,
+            totalDuration: Math.round(totalDuration),
+            totalCost: Math.round(totalCost * 100) / 100,
+            fuelCost: Math.round(fuelCost * 100) / 100,
+            fixedCost: Math.round(fixedCost * 100) / 100,
+            distanceCost: Math.round(distanceCost * 100) / 100,
+            tollCost: Math.round(tollCost * 100) / 100,
+            tollCrossings: tollCalculation.crossings,
+            highwayUsage: tollCalculation.highwayUsage,
+            totalLoad,
+            capacityUtilization: Math.round((totalLoad / vehicleCapacity) * 100),
+            geometry: route.geometry || null,
+          })
+        }
+
+        const assignedCustomers = Array.from(assignedCustomerIndices).map((i) => batchCustomers[i])
+        remainingCustomers = remainingCustomers.filter((c) => !assignedCustomers.some((ac) => ac?.id === c.id))
+
+        for (const u of response.unassigned || []) {
+          const customerIndex = u.id - 1
+          if (!assignedCustomerIndices.has(customerIndex)) {
+            const customer = batchCustomers[customerIndex]
+            if (customer) {
+              allUnassigned.push(customer.id)
+            }
+          }
+        }
+      } catch (batchError) {
+        console.error("ORS batch hatası:", batchError)
+        allUnassigned.push(...batchCustomers.map((c) => c.id))
+        remainingCustomers = remainingCustomers.filter((c) => !batchCustomers.some((bc) => bc.id === c.id))
+      }
+    }
+
+    allUnassigned.push(...remainingCustomers.map((c) => c.id))
+  }
+
+  const computationTime = Date.now() - startTime
+  const totalDistance = allRoutes.reduce((sum, r) => sum + (r.totalDistance || 0), 0)
+  const totalDuration = allRoutes.reduce((sum, r) => sum + (r.totalDuration || 0), 0)
+  const totalFuelCost = allRoutes.reduce((sum, r) => sum + (r.fuelCost || 0), 0)
+  const totalFixedCost = allRoutes.reduce((sum, r) => sum + (r.fixedCost || 0), 0)
+  const totalDistanceCost = allRoutes.reduce((sum, r) => sum + (r.distanceCost || 0), 0)
+  const totalTollCost = allRoutes.reduce((sum, r) => sum + (r.tollCost || 0), 0)
+  const totalCost = totalFuelCost + totalFixedCost + totalDistanceCost + totalTollCost
+  const avgCapacityUtilization =
+    allRoutes.length > 0 ? allRoutes.reduce((sum, r) => sum + (r.capacityUtilization || 0), 0) / allRoutes.length : 0
+
+  return {
+    success: true,
+    provider: "openrouteservice",
+    summary: {
+      totalRoutes: allRoutes.length,
+      totalDistance: Math.round(totalDistance * 100) / 100,
+      totalDuration: Math.round(totalDuration),
+      totalCost: Math.round(totalCost * 100) / 100,
+      fuelCost: Math.round(totalFuelCost * 100) / 100,
+      fixedCost: Math.round(totalFixedCost * 100) / 100,
+      distanceCost: Math.round(totalDistanceCost * 100) / 100,
+      tollCost: Math.round(totalTollCost * 100) / 100,
+      unassignedCount: allUnassigned.length,
+      computationTimeMs: computationTime,
+      avgCapacityUtilization: Math.round(avgCapacityUtilization),
+    },
+    routes: allRoutes,
+    unassigned: [...new Set(allUnassigned)],
+  }
+}
+
+async function warmupRailway(): Promise<void> {
+  if (!process.env.RAILWAY_API_URL) return
+
+  try {
+    console.log("[v0] Warming up Railway...")
+    await fetch(`${process.env.RAILWAY_API_URL}/health`, {
+      method: "GET",
+      signal: AbortSignal.timeout(5000),
+    })
+    console.log("[v0] Railway warmed up")
+  } catch (error) {
+    console.warn("[v0] Railway warmup failed (non-critical):", error)
+  }
+}
 
 async function optimizeWithRailway(
   depots: any[],
@@ -10,139 +392,326 @@ async function optimizeWithRailway(
   orders: any[],
   options: any,
 ): Promise<any> {
+  console.log("[v0] Starting Railway optimization with OR-Tools")
+
   if (!process.env.RAILWAY_API_URL) {
     throw new Error("Railway API URL not configured")
   }
 
-  // Map orders to customers to get actual demand
-  const customerDemandMap = new Map<string, number>()
-  orders.forEach((order: any) => {
-    const currentDemand = customerDemandMap.get(order.customerId) || 0
-    customerDemandMap.set(order.customerId, currentDemand + (order.pallets || 0))
-  })
+  const availableVehicles = vehicles.filter((v) => v.status !== "maintenance" && v.status !== "inactive")
 
-  const totalDemand = Array.from(customerDemandMap.values()).reduce((sum, d) => sum + d, 0)
-  console.log("[optimize] Orders processed:", orders.length, "Total demand:", totalDemand, "pallets")
+  if (availableVehicles.length === 0) {
+    throw new Error("Kullanılabilir araç bulunamadı - tüm araçlar bakımda veya aktif değil")
+  }
 
-  const railwayRequest: any = {
+  const validCustomers = customers.filter((c) => c.lat && c.lng && c.lat !== 0 && c.lng !== 0)
+
+  if (validCustomers.length === 0) {
+    throw new Error("Koordinatları olan müşteri bulunamadı")
+  }
+
+  const orderMap = new Map(orders.map((o) => [o.customerId, o]))
+
+  const customersWithOrders = validCustomers.filter((c) => orderMap.has(c.id))
+
+  if (customersWithOrders.length === 0) {
+    throw new Error("Bekleyen siparişi olan müşteri bulunamadı")
+  }
+
+  const railwayRequest = {
     depots: depots.map((d) => ({
       id: d.id,
       name: d.name,
-      location: { lat: d.lat, lng: d.lng },
+      location: {
+        lat: d.lat,
+        lng: d.lng,
+      },
     })),
-    customers: customers.map((c) => ({
-      id: c.id,
-      name: c.name,
-      location: { lat: c.lat, lng: c.lng },
-      demand_pallets: customerDemandMap.get(c.id) || c.demand_pallets || 1,
-      business_type: c.business_type || "restaurant",
-      service_duration: c.service_duration || 30,
-      has_time_constraint: c.has_time_constraint || false,
-      constraint_start_time: c.constraint_start_time || null,
-      constraint_end_time: c.constraint_end_time || null,
-      required_vehicle_types: c.required_vehicle_types || null,
-    })),
-    vehicles: vehicles.map((v) => ({
-      id: v.id,
-      type: v.vehicle_type === 'tir' ? 3 : (v.vehicle_type === 'kamyon' ? 1 : 2),
-      capacity_pallets: v.capacity_pallets || 12,
-      fuel_consumption: v.fuel_consumption_per_100km || 25,
-      plate: v.plate || v.license_plate || `Araç ${v.id}`,
-    })),
+    customers: customersWithOrders.map((c) => {
+      const order = orderMap.get(c.id)!
+      return {
+        id: c.id,
+        name: c.name || c.company_name || `Müşteri ${c.id}`,
+        location: {
+          lat: c.lat,
+          lng: c.lng,
+        },
+        demand_pallets: order.pallets,
+        priority: order.priority || 3,
+        business_type: c.business_type || "retail",
+        service_duration: c.service_duration_min || 15,
+        time_constraints: c.has_time_constraint
+          ? {
+              start: c.constraint_start_time,
+              end: c.constraint_end_time,
+            }
+          : null,
+        required_vehicle_type: c.required_vehicle_type || null,
+      }
+    }),
+    vehicles: availableVehicles.map((v) => {
+      const vehicleType = mapVehicleTypeToInt(v.vehicle_type)
+      return {
+        id: v.id,
+        type: vehicleType,
+        capacity_pallets: v.capacity_pallet || v.capacity_pallets || 12,
+        fuel_consumption: v.fuel_consumption || 25,
+        vehicle_type_name: v.vehicle_type, // Send type name for matching
+        plate: v.plate || v.license_plate || `${v.id}`, // Send plate to Railway
+      }
+    }),
     fuel_price: options.fuelPricePerLiter || 47.5,
   }
 
-  // OR-Tools config parametrelerini ekle
-  if (options.ortoolsConfig) {
-    railwayRequest.time_limit_seconds = options.ortoolsConfig.time_limit_seconds
-    railwayRequest.search_strategy = options.ortoolsConfig.search_strategy
-    railwayRequest.use_local_search = options.ortoolsConfig.use_local_search
-    railwayRequest.enable_time_windows = options.ortoolsConfig.enable_time_windows
-    console.log("[optimize] Sending OR-Tools config to Railway:", options.ortoolsConfig)
+  console.log("[v0] Railway request prepared")
+  console.log("[v0] Depots:", railwayRequest.depots.length)
+  console.log("[v0] Customers to optimize:", customersWithOrders.length)
+  console.log("[v0] Available vehicles:", availableVehicles.length)
+
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
+
+    console.log("[v0] Calling Railway API:", process.env.RAILWAY_API_URL)
+    console.log("[v0] Request body sample:", {
+      depotCount: railwayRequest.depots.length,
+      customersCount: railwayRequest.customers.length,
+      vehiclesCount: railwayRequest.vehicles.length,
+    })
+
+    const railwayResponse = await fetch(`${process.env.RAILWAY_API_URL}/optimize`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(railwayRequest),
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    console.log("[v0] Railway response status:", railwayResponse.status)
+
+    if (!railwayResponse.ok) {
+      const errorText = await railwayResponse.text()
+      console.error("[v0] Railway API error:", errorText)
+      throw new Error(`Railway API error (${railwayResponse.status}): ${errorText}`)
+    }
+
+    const railwayResult = await railwayResponse.json()
+    console.log("[v0] Railway optimization successful")
+
+    if (railwayResult.routes && railwayResult.routes.length > 0) {
+      console.log("[v0] Railway first route keys:", Object.keys(railwayResult.routes[0]))
+      console.log("[v0] Railway first route sample:", JSON.stringify(railwayResult.routes[0], null, 2))
+    }
+
+    if (!railwayResult || !railwayResult.routes || !Array.isArray(railwayResult.routes)) {
+      throw new Error("Railway returned invalid response")
+    }
+
+    if (railwayResult.routes.length === 0) {
+      console.warn("[v0] Railway returned no routes")
+      return {
+        success: true,
+        algorithm: "ortools",
+        provider: "ortools-railway",
+        summary: {
+          totalRoutes: 0,
+          totalDistance: 0,
+          totalDuration: 0,
+          totalCost: 0,
+          unassignedCount: customersWithOrders.length,
+        },
+        routes: [],
+        unassigned: customersWithOrders.map((c) => c.id),
+      }
+    }
+
+    const vehicleMap = new Map(vehicles.map((v) => [v.id, v]))
+    const customerMap = new Map(customers.map((c) => [c.id, c]))
+    const depotMap = new Map(depots.map((d) => [d.id, d]))
+
+    const formattedRoutes = railwayResult.routes.map((route: any, index: number) => ({
+      vehicleId: route.vehicle_id || `vehicle-${index}`,
+      vehiclePlate: (() => {
+        const plate = route.license_plate || route.plate || `Araç ${index + 1}`
+        console.log(
+          `[v0] Route ${index} plate from Railway: license_plate=${route.license_plate}, plate=${route.plate}, using=${plate}`,
+        )
+        return plate
+      })(),
+      vehicleType: route.vehicle_type || "Kamyon",
+      depotId: route.depot_id,
+      depotName: route.depot_name || depotMap.get(route.depot_id)?.name || "Depo",
+      totalDistance: route.distance_km || route.total_distance_km || 0,
+      distance: route.distance_km || route.total_distance_km || 0,
+      totalDuration: route.duration_minutes || Math.round(((route.distance_km || 0) / 60) * 60) || 0,
+      duration: route.duration_minutes || Math.round(((route.distance_km || 0) / 60) * 60) || 0,
+      totalCost: route.total_cost || 0,
+      totalLoad: route.total_pallets || route.total_load || 0,
+      load: route.total_pallets || route.total_load || 0,
+      totalPallets: route.total_pallets || route.total_load || 0,
+      fuelCost: route.fuel_cost || 0,
+      distanceCost: route.distance_cost || 0,
+      fixedCost: route.fixed_cost || 0,
+      tollCost: route.toll_cost || 0,
+      stops: (route.stops || []).map((stop: any, stopIndex: number) => ({
+        stopOrder: stopIndex + 1,
+        customerId: stop.customer_id,
+        customerName: stop.customer_name || customerMap.get(stop.customer_id)?.name || `Customer ${stopIndex + 1}`,
+        address: stop.address || customerMap.get(stop.customer_id)?.address || "",
+        lat: stop.location?.lat || stop.lat || 0,
+        lng: stop.location?.lng || stop.lng || 0,
+        latitude: stop.location?.lat || stop.lat || 0,
+        longitude: stop.location?.lng || stop.lng || 0,
+        demand: stop.demand || stop.pallets || 0,
+        distanceFromPrev: stop.distanceFromPrev || stop.distance_from_prev_km || 0,
+        durationFromPrev: stop.durationFromPrev || stop.duration_from_prev_min || 0,
+        cumulativeDistance: stop.cumulativeDistance || stop.cumulative_distance_km || 0,
+        cumulativeLoad: stop.cumulativeLoad || stop.cumulative_load || 0,
+        arrivalTime: stop.arrival_time || null,
+      })),
+      geometry: route.geometry || [],
+    }))
+
+    const summary = {
+      totalDistance: formattedRoutes.reduce((sum, r) => sum + (r.totalDistance || 0), 0),
+      totalDuration: formattedRoutes.reduce((sum, r) => sum + (r.totalDuration || 0), 0),
+      totalCost: formattedRoutes.reduce((sum, r) => sum + (r.totalCost || 0), 0),
+      fuelCost: formattedRoutes.reduce((sum, r) => sum + (r.fuelCost || 0), 0),
+      fixedCost: formattedRoutes.reduce((sum, r) => sum + (r.fixedCost || 0), 0),
+      distanceCost: formattedRoutes.reduce((sum, r) => sum + (r.distanceCost || 0), 0),
+      tollCost: formattedRoutes.reduce((sum, r) => sum + (r.tollCost || 0), 0),
+      unassignedCount: 0,
+      computationTimeMs: 0,
+    }
+
+    return {
+      success: true,
+      algorithm: "ortools",
+      provider: "ortools-railway",
+      summary,
+      routes: formattedRoutes,
+      unassigned: [],
+    }
+  } catch (error: any) {
+    console.error("[v0] Railway optimization error:", error)
+
+    if (error.name === "AbortError") {
+      throw new Error("Railway API timeout - Lütfen tekrar deneyin")
+    }
+
+    throw error
+  }
+}
+
+function mapVehicleTypeToInt(type: string | undefined): number {
+  if (!type) return 3
+
+  const typeStr = type.toLowerCase().trim()
+
+  if (typeStr.includes("tır") || typeStr.includes("tir")) return 1
+  if (typeStr.includes("kamyon")) return 2
+  if (typeStr.includes("kamyonet")) return 3
+  if (typeStr.includes("panelvan") || typeStr.includes("van")) return 4
+  if (typeStr.includes("pikap")) return 5
+
+  const typeNum = Number.parseInt(type)
+  if (!Number.isNaN(typeNum) && typeNum >= 1 && typeNum <= 5) {
+    return typeNum
   }
 
-  const railwayResponse = await fetch(`${process.env.RAILWAY_API_URL}/optimize`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(railwayRequest),
-    signal: AbortSignal.timeout(60000),
-  })
+  return 3
+}
 
-  if (!railwayResponse.ok) {
-    throw new Error(`Railway API error: ${railwayResponse.status}`)
+function findNearestDepot(firstStop: any, depots: any[]): any {
+  if (!firstStop || !depots || depots.length === 0) {
+    return depots[0]
   }
 
-  const railwayResult = await railwayResponse.json()
+  const stopLat = firstStop.location?.lat || firstStop.lat || 0
+  const stopLng = firstStop.location?.lng || firstStop.lng || 0
 
-  const formattedRoutes = (railwayResult.routes || []).map((route: any, index: number) => ({
-    id: `route-${index + 1}`,
-    vehicleId: route.vehicle_id || `v-${index + 1}`,
-    vehiclePlate: route.plate || route.license_plate || `Araç ${index + 1}`,
-    totalDistance: route.distance_km || route.total_distance_km || 0,
-    totalDuration: route.duration_minutes || (route.distance_km ? Math.round((route.distance_km / 60) * 60) : 0),
-    totalCost: route.total_cost || 0,
-    totalLoad: route.total_pallets || 0,
-    fuelCost: route.fuel_cost || 0,
-    maintenanceCost: route.maintenance_cost || 0,
-    driverCost: route.driver_cost || 0,
-    otherCosts: route.other_costs || 0,
-    stops: (route.stops || []).map((stop: any) => ({
-      id: stop.customer_id || stop.id,
-      customerId: stop.customer_id,
-      customerName: stop.customer_name || stop.name,
-      location: stop.location || { lat: 0, lng: 0 },
-      arrivalTime: stop.arrival_time,
-      departureTime: stop.departure_time,
-      pallets: stop.pallets || stop.load || 0,
-      distanceFromPrev: stop.distanceFromPrev || stop.distance_from_prev_km || 0,
-      durationFromPrev: stop.durationFromPrev || stop.duration_from_prev_min || 0,
-      cumulativeDistance: stop.cumulativeDistance || stop.cumulative_distance_km || 0,
-      cumulativeLoad: stop.cumulativeLoad || stop.cumulative_load || 0,
-    })),
-    geometry: route.geometry || null,
-  }))
+  let nearestDepot = depots[0]
+  let minDistance = Number.POSITIVE_INFINITY
 
-  const summary = {
-    totalCost: formattedRoutes.reduce((sum: number, r: any) => sum + (r.totalCost || 0), 0),
-    totalDistance: formattedRoutes.reduce((sum: number, r: any) => sum + (r.totalDistance || 0), 0),
-    totalDuration: formattedRoutes.reduce((sum: number, r: any) => sum + (r.totalDuration || 0), 0),
-    fuelCost: formattedRoutes.reduce((sum: number, r: any) => sum + (r.fuelCost || 0), 0),
-    maintenanceCost: formattedRoutes.reduce((sum: number, r: any) => sum + (r.maintenanceCost || 0), 0),
-    driverCost: formattedRoutes.reduce((sum: number, r: any) => sum + (r.driverCost || 0), 0),
-    otherCosts: formattedRoutes.reduce((sum: number, r: any) => sum + (r.otherCosts || 0), 0),
+  for (const depot of depots) {
+    const distance = haversineDistance(stopLat, stopLng, depot.lat, depot.lng)
+    if (distance < minDistance) {
+      minDistance = distance
+      nearestDepot = depot
+    }
   }
 
-  return {
-    success: true,
-    algorithm: "ortools",
-    provider: "ortools-railway",
-    routes: formattedRoutes,
-    summary,
-  }
+  return nearestDepot
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { depots, algorithm = "ortools" } = body
-    const { vehicles, customers, orders = [] } = body
-    const { fuelPricePerLiter = 47.5, ortoolsConfig } = body
+    console.log("[v0] POST /api/optimize called")
 
-    if (!depots || !vehicles || !customers) {
+    const {
+      depots: requestDepots, // Renamed to avoid confusion
+      vehicles: requestVehicles,
+      customers: requestCustomers,
+      orders,
+      algorithm = "ortools",
+      fuelPrice = 47.5,
+      maxRouteDistance,
+      maxRouteTime = 600,
+    } = body
+
+    if (!requestDepots || !requestVehicles || !requestCustomers) {
       return NextResponse.json({ success: false, error: "Missing required data" }, { status: 400 })
     }
 
-    const availableVehicles = vehicles.filter((v: any) => v.status === "available")
+    const selectedDepots = requestDepots
+    const availableVehicles = requestVehicles.filter((v: any) => v.status !== "maintenance" && v.status !== "inactive")
+    const selectedCustomers = requestCustomers
 
-    const result = await optimizeWithRailway(depots, availableVehicles, customers, orders, {
-      fuelPricePerLiter,
-      ortoolsConfig,
-    })
+    if (selectedDepots.length === 0 || selectedCustomers.length === 0 || availableVehicles.length === 0) {
+      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
+    }
 
-    return NextResponse.json(result)
+    console.log("[v0] Algorithm:", algorithm)
+    console.log("[v0] Depots:", selectedDepots.length)
+    console.log("[v0] Vehicles:", availableVehicles.length)
+    console.log("[v0] Customers:", selectedCustomers.length)
+    console.log("[v0] Orders:", orders?.length || 0)
+
+    if (algorithm === "ortools") {
+      await warmupRailway()
+    }
+
+    let optimization
+
+    if (algorithm === "ortools") {
+      optimization = await optimizeWithRailway(selectedDepots, availableVehicles, selectedCustomers, orders || [], {
+        algorithm,
+        fuelPricePerLiter: fuelPrice,
+        maxRouteDistanceKm: maxRouteDistance,
+        maxRouteTimeMin: maxRouteTime,
+      })
+    } else {
+      optimization = await optimizeWithORS(selectedDepots, availableVehicles, selectedCustomers, {
+        fuelPricePerLiter: fuelPrice,
+        maxRouteDistanceKm: maxRouteDistance,
+        maxRouteTimeMin: maxRouteTime,
+      })
+    }
+
+    return NextResponse.json(optimization)
   } catch (error: any) {
     console.error("[v0] Optimization error:", error)
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || "Optimizasyon başarısız",
+      },
+      { status: 500 },
+    )
   }
 }
 

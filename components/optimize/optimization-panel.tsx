@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -49,9 +49,6 @@ export function OptimizationPanel() {
   const [missingCoordinatesCustomers, setMissingCoordinatesCustomers] = useState<Customer[]>([])
   const [showMissingCoordinatesDialog, setShowMissingCoordinatesDialog] = useState(false)
 
-  // AbortController ile önceki optimize isteklerini iptal etme
-  const abortControllerRef = useRef<AbortController | null>(null)
-
   const [orders, setOrders] = useState<
     { customerId: string; customerName: string; pallets: number; priority?: number }[]
   >([])
@@ -66,33 +63,12 @@ export function OptimizationPanel() {
   const [useRealDistances, setUseRealDistances] = useState(true)
   const [algorithm, setAlgorithm] = useState<"ors" | "ortools">("ortools")
 
-  // Advanced OR-Tools settings
-  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
-  const [ortoolsTimeLimit, setOrtoolsTimeLimit] = useState(45) // seconds
-  const [ortoolsSearchStrategy, setOrtoolsSearchStrategy] = useState("SAVINGS")
-  const [ortoolsUseLocalSearch, setOrtoolsUseLocalSearch] = useState(true)
-  const [ortoolsEnableTimeWindows, setOrtoolsEnableTimeWindows] = useState(false)
-
-  // useMemo ile optimize edilmiş hesaplamalar - sadece bağımlılıklar değiştiğinde yeniden hesaplanır
-  const availableVehicles = useMemo(
-    () => vehicles.filter((v) => selectedDepots.includes(v.depot_id || "")),
-    [vehicles, selectedDepots],
-  )
-
-  const totalCapacity = useMemo(
-    () => availableVehicles.reduce((sum, v) => sum + (v.capacity_pallets || 0), 0),
-    [availableVehicles],
-  )
-
-  const totalDemand = useMemo(() => orders.reduce((sum, o) => sum + o.pallets, 0), [orders])
-
-  const missingCoords = useMemo(
-    () =>
-      customers
-        .filter((c) => orders.some((o) => o.customerId === c.id))
-        .filter((c) => !c.lat || !c.lng || c.lat === 0 || c.lng === 0),
-    [customers, orders],
-  )
+  const availableVehicles = vehicles.filter((v) => selectedDepots.includes(v.depot_id || ""))
+  const totalCapacity = availableVehicles.reduce((sum, v) => sum + (v.capacity_pallets || 0), 0)
+  const totalDemand = orders.reduce((sum, o) => sum + o.pallets, 0)
+  const missingCoords = customers
+    .filter((c) => orders.some((o) => o.customerId === c.id))
+    .filter((c) => !c.lat || !c.lng || c.lat === 0 || c.lng === 0)
 
   useEffect(() => {
     fetchData()
@@ -103,9 +79,9 @@ export function OptimizationPanel() {
       const [depotsRes, vehiclesRes, customersRes, fuelRes, ordersRes] = await Promise.all([
         fetch("/api/depots"),
         fetch("/api/vehicles"),
-        fetch("/api/customers?all=true"), // Optimizasyon için tüm müşteriler
+        fetch("/api/customers"),
         fetch("/api/fuel-price"),
-        fetch("/api/orders?all=true"), // Optimizasyon için tüm siparişler
+        fetch("/api/orders"),
       ])
 
       if (depotsRes.ok) {
@@ -205,15 +181,6 @@ export function OptimizationPanel() {
     }
 
     console.log("[v0] All validation passed, starting optimization...")
-
-    // Önceki isteği iptal et
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-
-    // Yeni AbortController oluştur
-    abortControllerRef.current = new AbortController()
-
     setOptimizing(true)
     setOptimizeError(null)
     setProgress(10)
@@ -230,38 +197,22 @@ export function OptimizationPanel() {
       orders: orders.length,
       algorithm,
     })
-    console.log("[v0] Orders detail:", orders.slice(0, 5)) // First 5 orders
-    console.log("[v0] Total pallets in orders:", orders.reduce((sum, o) => sum + (o.pallets || 0), 0))
 
     try {
       console.log("[v0] Fetching /api/optimize...")
-      const requestBody: any = {
-        depots: depotsData,
-        vehicles: vehiclesData,
-        customers: customersData,
-        orders,
-        algorithm,
-        fuelPricePerLiter: fuelPrice,
-        maxRouteDistanceKm: maxRouteDistance,
-        maxRouteTimeMin: maxRouteDuration,
-      }
-
-      // OR-Tools özel parametrelerini ekle
-      if (algorithm === "ortools") {
-        requestBody.ortoolsConfig = {
-          time_limit_seconds: ortoolsTimeLimit,
-          search_strategy: ortoolsSearchStrategy,
-          use_local_search: ortoolsUseLocalSearch,
-          enable_time_windows: ortoolsEnableTimeWindows,
-        }
-        console.log("[v0] OR-Tools config:", requestBody.ortoolsConfig)
-      }
-
       const response = await fetch("/api/optimize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-        signal: abortControllerRef.current?.signal, // İstek iptali için
+        body: JSON.stringify({
+          depots: depotsData,
+          vehicles: vehiclesData,
+          customers: customersData,
+          orders,
+          algorithm,
+          fuelPricePerLiter: fuelPrice,
+          maxRouteDistanceKm: maxRouteDistance,
+          maxRouteTimeMin: maxRouteDuration,
+        }),
       })
 
       console.log("[v0] API response status:", response.status)
@@ -283,13 +234,6 @@ export function OptimizationPanel() {
         description: `${result.routes?.length || 0} rota oluşturuldu`,
       })
     } catch (error: any) {
-      // İstek iptal edildiyse sessizce geç
-      if (error.name === "AbortError") {
-        console.log("[v0] Optimization request aborted")
-        setOptimizing(false)
-        return
-      }
-
       console.error("[v0] Optimization error:", error)
       setOptimizing(false)
       setOptimizeError(error instanceof Error ? error.message : "Bilinmeyen hata")
@@ -538,130 +482,6 @@ export function OptimizationPanel() {
                   <Switch checked={useRealDistances} onCheckedChange={setUseRealDistances} />
                 </div>
               </div>
-
-              {/* Advanced OR-Tools Settings */}
-              {algorithm === "ortools" && (
-                <>
-                  <Separator />
-                  <div className="space-y-2">
-                    <div
-                      className="flex items-center justify-between cursor-pointer"
-                      onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-                    >
-                      <Label className="text-sm font-medium cursor-pointer">Gelişmiş OR-Tools Ayarları</Label>
-                      <Button variant="ghost" size="sm" className="h-6 px-2">
-                        {showAdvancedSettings ? "Gizle" : "Göster"}
-                      </Button>
-                    </div>
-
-                    {showAdvancedSettings && (
-                      <div className="space-y-4 pt-2 pl-2 border-l-2 border-primary/20">
-                        {/* Time Limit */}
-                        <div className="space-y-2">
-                          <Label className="text-xs font-medium">
-                            Zaman Limiti: {ortoolsTimeLimit} saniye
-                          </Label>
-                          <Slider
-                            value={[ortoolsTimeLimit]}
-                            onValueChange={([v]) => setOrtoolsTimeLimit(v)}
-                            min={15}
-                            max={120}
-                            step={5}
-                            className="flex-1"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Optimizasyon için maksimum süre (15-120 saniye)
-                          </p>
-                        </div>
-
-                        {/* Search Strategy */}
-                        <div className="space-y-2">
-                          <Label className="text-xs font-medium">Arama Stratejisi</Label>
-                          <Select value={ortoolsSearchStrategy} onValueChange={setOrtoolsSearchStrategy}>
-                            <SelectTrigger className="text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="SAVINGS">
-                                <div className="flex flex-col">
-                                  <span className="font-medium">SAVINGS</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    Clarke-Wright algoritması (Önerilen)
-                                  </span>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="PATH_CHEAPEST_ARC">
-                                <div className="flex flex-col">
-                                  <span className="font-medium">PATH CHEAPEST ARC</span>
-                                  <span className="text-xs text-muted-foreground">En ucuz yay seçimi</span>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="PARALLEL_CHEAPEST_INSERTION">
-                                <div className="flex flex-col">
-                                  <span className="font-medium">PARALLEL CHEAPEST INSERTION</span>
-                                  <span className="text-xs text-muted-foreground">Paralel en ucuz ekleme</span>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="LOCAL_CHEAPEST_INSERTION">
-                                <div className="flex flex-col">
-                                  <span className="font-medium">LOCAL CHEAPEST INSERTION</span>
-                                  <span className="text-xs text-muted-foreground">Yerel en ucuz ekleme</span>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="AUTOMATIC">
-                                <div className="flex flex-col">
-                                  <span className="font-medium">AUTOMATIC</span>
-                                  <span className="text-xs text-muted-foreground">Otomatik seçim</span>
-                                </div>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Local Search */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Label className="text-xs font-medium">Yerel Arama</Label>
-                              <p className="text-xs text-muted-foreground">
-                                Guided Local Search metaheuristic
-                              </p>
-                            </div>
-                            <Switch
-                              checked={ortoolsUseLocalSearch}
-                              onCheckedChange={setOrtoolsUseLocalSearch}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Time Windows */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Label className="text-xs font-medium">Zaman Pencereleri</Label>
-                              <p className="text-xs text-muted-foreground">
-                                Müşteri zaman kısıtları (Deneysel)
-                              </p>
-                            </div>
-                            <Switch
-                              checked={ortoolsEnableTimeWindows}
-                              onCheckedChange={setOrtoolsEnableTimeWindows}
-                            />
-                          </div>
-                          {ortoolsEnableTimeWindows && (
-                            <Alert className="mt-2 p-2 bg-amber-50 border-amber-300">
-                              <AlertTriangle className="h-3 w-3 text-amber-600" />
-                              <AlertDescription className="text-xs text-amber-700">
-                                Zaman penceresi kısıtları optimizasyon süresini artırabilir
-                              </AlertDescription>
-                            </Alert>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
             </CardContent>
           </Card>
 
