@@ -10,8 +10,11 @@ RUN apt-get update && apt-get install -y \
 COPY requirements-railway.txt .
 RUN pip install --no-cache-dir -r requirements-railway.txt
 
+# Force cache invalidation for optimizer files
+ARG CACHE_BUST=2026-01-18
+RUN echo "Cache bust: ${CACHE_BUST}"
+
 # Copy Python backend files - v2 optimizer (optimized version)
-# Force rebuild: 2026-01-16 to clear Docker cache
 COPY railway/main.py main.py
 COPY railway/ortools_optimizer.py ortools_optimizer.py
 COPY railway/ortools_optimizer_v2.py ortools_optimizer_v2.py
