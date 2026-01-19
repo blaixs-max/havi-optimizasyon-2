@@ -431,6 +431,7 @@ async function optimizeWithRailway(
     })),
     customers: customersWithOrders.map((c) => {
       const order = orderMap.get(c.id)!
+      console.log(`[v0] Customer ${c.id}: assigned_depot_id="${c.assigned_depot_id}", keys=${Object.keys(c).join(',')}`)
       return {
         id: c.id,
         name: c.name || c.company_name || `Müşteri ${c.id}`,
