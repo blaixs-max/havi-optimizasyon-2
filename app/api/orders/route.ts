@@ -1,28 +1,53 @@
 import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
+import type { NextRequest } from "next/server"
 
 const sql = neon(process.env.DATABASE_URL || "")
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const searchParams = request.nextUrl.searchParams
+    const depotId = searchParams.get("depot_id")
+    
     console.log("[v0] GET /api/orders called")
-    const orders = await sql`
-      SELECT 
-        o.id,
-        o.customer_id,
-        c.name as customer_name,
-        c.city,
-        c.district,
-        o.order_date,
-        o.pallets,
-        o.status,
-        o.delivery_date,
-        o.notes,
-        o.created_at
-      FROM orders o
-      LEFT JOIN customers c ON o.customer_id = c.id
-      ORDER BY o.order_date DESC, o.created_at DESC
-    `
+    console.log("[v0] Depot filter:", depotId || "all")
+    
+    const orders = depotId
+      ? await sql`
+          SELECT 
+            o.id,
+            o.customer_id,
+            c.name as customer_name,
+            c.city,
+            c.district,
+            o.order_date,
+            o.pallets,
+            o.status,
+            o.delivery_date,
+            o.notes,
+            o.created_at
+          FROM orders o
+          LEFT JOIN customers c ON o.customer_id = c.id
+          WHERE c.assigned_depot_id = ${depotId}
+          ORDER BY o.order_date DESC, o.created_at DESC
+        `
+      : await sql`
+          SELECT 
+            o.id,
+            o.customer_id,
+            c.name as customer_name,
+            c.city,
+            c.district,
+            o.order_date,
+            o.pallets,
+            o.status,
+            o.delivery_date,
+            o.notes,
+            o.created_at
+          FROM orders o
+          LEFT JOIN customers c ON o.customer_id = c.id
+          ORDER BY o.order_date DESC, o.created_at DESC
+        `
 
     console.log("[v0] Orders fetched from DB:", orders.length)
     console.log(

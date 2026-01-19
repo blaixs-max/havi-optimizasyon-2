@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { DepotCheck } from "@/components/depot-check"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -45,7 +46,7 @@ export default function RootLayout({
   return (
     <html lang="tr" suppressHydrationWarning>
       <body className={`font-sans antialiased`}>
-        {children}
+        <DepotCheck>{children}</DepotCheck>
         <Analytics />
       </body>
     </html>

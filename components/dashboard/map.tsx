@@ -52,59 +52,87 @@ export function DashboardMap() {
   }, [])
 
   useEffect(() => {
-    if (!mapRef.current || loading) return
+    if (loading || typeof window === "undefined") return
+
+    let mounted = true
+    let retryCount = 0
+    const maxRetries = 10
 
     async function initMap() {
-      if (typeof window === "undefined") return
+      // Check if component is still mounted
+      if (!mounted) return
       
-      // Check if map container exists and has dimensions
-      if (!mapRef.current || mapRef.current.clientHeight === 0) {
-        console.log("[v0] Map container not ready, waiting...")
-        setTimeout(initMap, 100)
+      // Check if map container exists and is visible
+      if (!mapRef.current) {
+        if (retryCount < maxRetries) {
+          retryCount++
+          setTimeout(initMap, 100)
+        }
         return
       }
 
-      const leaflet = await import("leaflet")
-      L = leaflet.default || leaflet
+      // Wait for container to have dimensions
+      const rect = mapRef.current.getBoundingClientRect()
+      if (rect.height === 0 || rect.width === 0) {
+        if (retryCount < maxRetries) {
+          retryCount++
+          setTimeout(initMap, 100)
+        }
+        return
+      }
 
-      if (!document.getElementById("leaflet-css")) {
-        const link = document.createElement("link")
-        link.id = "leaflet-css"
-        link.rel = "stylesheet"
-        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        document.head.appendChild(link)
-        
-        // Wait for CSS to load
-        await new Promise(resolve => {
-          link.onload = resolve
-          setTimeout(resolve, 500) // Fallback timeout
+      try {
+        const leaflet = await import("leaflet")
+        L = leaflet.default || leaflet
+
+        if (!document.getElementById("leaflet-css")) {
+          const link = document.createElement("link")
+          link.id = "leaflet-css"
+          link.rel = "stylesheet"
+          link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          document.head.appendChild(link)
+          
+          // Wait for CSS to load
+          await new Promise(resolve => {
+            link.onload = resolve
+            setTimeout(resolve, 500)
+          })
+        }
+
+        // Clean up existing map instance
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove()
+          mapInstanceRef.current = null
+        }
+
+        // Only proceed if still mounted and container exists
+        if (!mounted || !mapRef.current) return
+
+        const map = L.map(mapRef.current, {
+          center: [MAP_CENTER.lat, MAP_CENTER.lng],
+          zoom: MAP_CENTER.zoom,
+          zoomControl: false,
         })
+
+        const tileProvider = TILE_PROVIDERS.cartoDB || TILE_PROVIDERS.osm
+        L.tileLayer(tileProvider.url, {
+          attribution: tileProvider.attribution,
+          maxZoom: 19,
+        }).addTo(map)
+
+        mapInstanceRef.current = map
+        setMapReady(true)
+      } catch (error) {
+        console.error("[v0] Map initialization failed:", error)
       }
-
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove()
-        mapInstanceRef.current = null
-      }
-
-      const map = L.map(mapRef.current, {
-        center: [MAP_CENTER.lat, MAP_CENTER.lng],
-        zoom: MAP_CENTER.zoom,
-        zoomControl: false,
-      })
-
-      const tileProvider = TILE_PROVIDERS.cartoDB || TILE_PROVIDERS.osm
-      L.tileLayer(tileProvider.url, {
-        attribution: tileProvider.attribution,
-        maxZoom: 19,
-      }).addTo(map)
-
-      mapInstanceRef.current = map
-      setMapReady(true)
     }
 
-    initMap()
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(initMap, 100)
 
     return () => {
+      mounted = false
+      clearTimeout(timer)
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null

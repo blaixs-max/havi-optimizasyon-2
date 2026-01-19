@@ -22,12 +22,16 @@ import {
   CheckCircle2,
   AlertCircle,
   ExternalLink,
+  Building2,
 } from "lucide-react"
 import { OSRM_CONFIG, VROOM_CONFIG, VEHICLE_TYPES } from "@/lib/constants"
+import { useDepotStore, DEPOTS } from "@/lib/depot-store"
 
 export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const { selectedDepotId, setSelectedDepot } = useDepotStore()
+  const selectedDepot = DEPOTS.find((d) => d.id === selectedDepotId)
 
   // General settings state
   const [settings, setSettings] = useState({
@@ -124,6 +128,49 @@ export default function SettingsPage() {
 
           {/* General Settings */}
           <TabsContent value="general" className="space-y-6">
+            {/* Depot Selection Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  Aktif Depo
+                </CardTitle>
+                <CardDescription>
+                  Çalışmak istediğiniz depoyu seçin. Tüm veriler ve rotalar bu depoya göre filtrelenecektir.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  {DEPOTS.map((depot) => (
+                    <button
+                      key={depot.id}
+                      type="button"
+                      onClick={() => setSelectedDepot(depot.id)}
+                      className={`p-4 border-2 rounded-lg transition-all hover:border-primary/50 ${
+                        selectedDepotId === depot.id
+                          ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                          : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <Building2
+                          className={`h-6 w-6 ${selectedDepotId === depot.id ? "text-primary" : "text-slate-400"}`}
+                        />
+                        <h3 className="font-semibold text-lg">{depot.name}</h3>
+                      </div>
+                      <p className="text-sm text-slate-600 mb-3">{depot.address}</p>
+                      {selectedDepotId === depot.id && (
+                        <Badge className="w-full justify-center bg-primary text-white">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Aktif Depo
+                        </Badge>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Sirket Bilgileri</CardTitle>

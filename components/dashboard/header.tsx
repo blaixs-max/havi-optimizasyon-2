@@ -1,8 +1,9 @@
 "use client"
 
-import { Bell, Search, Sun, Moon, Plus, RefreshCw } from "lucide-react"
+import { Bell, Search, Sun, Moon, Plus, RefreshCw, Building2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useDepotStore, DEPOTS } from "@/lib/depot-store"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +17,8 @@ import { useEffect, useState } from "react"
 
 export function DashboardHeader() {
   const [isDark, setIsDark] = useState(false)
+  const selectedDepotId = useDepotStore((state) => state.selectedDepotId)
+  const selectedDepot = DEPOTS.find((d) => d.id === selectedDepotId)
 
   useEffect(() => {
     const isDarkMode = document.documentElement.classList.contains("dark")
@@ -29,8 +32,14 @@ export function DashboardHeader() {
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-card px-4 gap-4">
-      {/* Left Section - Search */}
+      {/* Left Section - Depot & Search */}
       <div className="flex items-center gap-3 flex-1">
+        {selectedDepot && (
+          <Badge variant="outline" className="h-9 gap-2 px-3 text-sm font-medium border-primary/30 bg-primary/5">
+            <Building2 className="h-4 w-4 text-primary" />
+            {selectedDepot.name}
+          </Badge>
+        )}
         <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

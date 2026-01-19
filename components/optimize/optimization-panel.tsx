@@ -33,100 +33,69 @@ import type { Depot, Vehicle, Customer, OptimizationResult } from "@/lib/types"
 import { OptimizationResults } from "./optimization-results"
 import { saveCustomerCoordinates } from "@/lib/customer-store"
 import { MissingCoordinatesDialog } from "@/components/customers/missing-coordinates-dialog"
+import { useCustomers, useVehicles, useOrders, useDepots } from "@/lib/hooks/use-depot-data"
+import { useDepotStore } from "@/lib/depot-store"
 
 export function OptimizationPanel() {
-  const [depots, setDepots] = useState<Depot[]>([])
-  const [vehicles, setVehicles] = useState<Vehicle[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [loading, setLoading] = useState(true)
+  const selectedDepotId = useDepotStore((state) => state.selectedDepotId)
+  
+  // Use depot-aware SWR hooks
+  const { data: depotsData, isLoading: depotsLoading } = useDepots()
+  const { data: vehiclesData, isLoading: vehiclesLoading } = useVehicles()
+  const { data: customersData, isLoading: customersLoading } = useCustomers()
+  const { data: ordersData, isLoading: ordersLoading } = useOrders()
+  
   const [optimizing, setOptimizing] = useState(false)
   const [result, setResult] = useState<OptimizationResult | null>(null)
   const [progress, setProgress] = useState(0)
-  const [isDemo, setIsDemo] = useState(false)
   const [optimizeError, setOptimizeError] = useState<string | null>(null)
   const [isSavingRoutes, setIsSavingRoutes] = useState(false)
 
   const [missingCoordinatesCustomers, setMissingCoordinatesCustomers] = useState<Customer[]>([])
   const [showMissingCoordinatesDialog, setShowMissingCoordinatesDialog] = useState(false)
 
-  const [orders, setOrders] = useState<
-    { customerId: string; customerName: string; pallets: number; priority?: number }[]
-  >([])
-
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([])
 
   // Parameters
-  const [selectedDepots, setSelectedDepots] = useState<string[]>([])
   const [fuelPrice, setFuelPrice] = useState(47.5)
   const [maxRouteDistance, setMaxRouteDistance] = useState<number | null>(null)
   const [maxRouteDuration, setMaxRouteDuration] = useState(600)
   const [useRealDistances, setUseRealDistances] = useState(true)
   const [algorithm, setAlgorithm] = useState<"ors" | "ortools">("ortools")
 
-  const availableVehicles = vehicles.filter((v) => selectedDepots.includes(v.depot_id || ""))
+  const loading = depotsLoading || vehiclesLoading || customersLoading || ordersLoading
+  const depots = depotsData || []
+  const vehicles = vehiclesData || []
+  const customers = customersData || []
+  const orders = (ordersData || []).map((o: any) => ({
+    customerId: o.customer_id,
+    customerName: o.customer_name,
+    pallets: o.pallets,
+  }))
+
+  const selectedDepot = depots.find((d: Depot) => d.id === selectedDepotId)
+  const selectedDepots = selectedDepot ? [selectedDepot.id] : []
+  
+  const availableVehicles = vehicles.filter((v: Vehicle) => v.depot_id === selectedDepotId)
   const totalCapacity = availableVehicles.reduce((sum, v) => sum + (v.capacity_pallets || 0), 0)
   const totalDemand = orders.reduce((sum, o) => sum + o.pallets, 0)
   const missingCoords = customers
-    .filter((c) => orders.some((o) => o.customerId === c.id))
-    .filter((c) => !c.lat || !c.lng || c.lat === 0 || c.lng === 0)
+    .filter((c: Customer) => orders.some((o) => o.customerId === c.id))
+    .filter((c: Customer) => !c.lat || !c.lng || c.lat === 0 || c.lng === 0)
 
   useEffect(() => {
-    fetchData()
+    fetchFuelPrice()
   }, [])
 
-  async function fetchData() {
+  async function fetchFuelPrice() {
     try {
-      const [depotsRes, vehiclesRes, customersRes, fuelRes, ordersRes] = await Promise.all([
-        fetch("/api/depots"),
-        fetch("/api/vehicles"),
-        fetch("/api/customers"),
-        fetch("/api/fuel-price"),
-        fetch("/api/orders"),
-      ])
-
-      if (depotsRes.ok) {
-        const depotsData = await depotsRes.json()
-        setDepots(depotsData)
-        setSelectedDepots(depotsData.map((d: Depot) => d.id))
-        setIsDemo(false)
-      }
-
-      if (vehiclesRes.ok) {
-        const vehiclesData = await vehiclesRes.json()
-        setVehicles(vehiclesData)
-      }
-
-      if (customersRes.ok) {
-        const customersData = await customersRes.json()
-        setCustomers(customersData)
-      }
-
+      const fuelRes = await fetch("/api/fuel-price")
       if (fuelRes.ok) {
         const fuelData = await fuelRes.json()
         setFuelPrice(fuelData.price || 47.5)
       }
-
-      if (ordersRes.ok) {
-        const ordersData = await ordersRes.json()
-        const pendingOrders = ordersData
-          .filter((o: any) => o.status === "pending")
-          .map((o: any) => ({
-            customerId: o.customer_id,
-            customerName: o.customer_name,
-            pallets: o.pallets,
-            priority: o.priority || 3,
-          }))
-        setOrders(pendingOrders)
-      }
     } catch (error) {
-      console.error("[v0] Failed to fetch data:", error)
-      toast({
-        title: "Veri Yükleme Hatası",
-        description: "Veriler yüklenemedi. Lütfen sayfayı yenileyin.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
+      console.error("Failed to fetch fuel price:", error)
     }
   }
 
