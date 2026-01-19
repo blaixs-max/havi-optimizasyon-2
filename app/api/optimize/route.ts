@@ -413,6 +413,8 @@ async function optimizeWithRailway(
   const orderMap = new Map(orders.map((o) => [o.customerId, o]))
 
   const customersWithOrders = validCustomers.filter((c) => orderMap.has(c.id))
+  
+  console.log("[v0] DEBUG: First customer assigned_depot_id:", customersWithOrders[0]?.assigned_depot_id)
 
   if (customersWithOrders.length === 0) {
     throw new Error("Bekleyen siparişi olan müşteri bulunamadı")
