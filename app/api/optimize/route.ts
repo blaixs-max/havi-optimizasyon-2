@@ -486,6 +486,7 @@ async function optimizeWithRailway(
       customersCount: railwayRequest.customers.length,
       vehiclesCount: railwayRequest.vehicles.length,
     })
+    console.log("[v0] CRITICAL DEBUG - First customer being sent to Railway:", JSON.stringify(railwayRequest.customers[0]))
 
     const railwayResponse = await fetch(`${process.env.RAILWAY_API_URL}/optimize`, {
       method: "POST",
