@@ -655,6 +655,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     console.log("[v0] POST /api/optimize called")
+    console.log("[v0] DEBUG: Request body first customer:", JSON.stringify(body.customers?.[0], null, 2))
 
     const {
       depots: requestDepots, // Renamed to avoid confusion
@@ -666,6 +667,8 @@ export async function POST(req: NextRequest) {
       maxRouteDistance,
       maxRouteTime = 600,
     } = body
+    
+    console.log("[v0] DEBUG: requestCustomers[0]:", JSON.stringify(requestCustomers?.[0], null, 2))
 
     if (!requestDepots || !requestVehicles || !requestCustomers) {
       return NextResponse.json({ success: false, error: "Missing required data" }, { status: 400 })
