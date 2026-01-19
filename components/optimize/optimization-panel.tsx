@@ -190,6 +190,9 @@ export function OptimizationPanel() {
     const vehiclesData = vehicles.filter((v) => v.status === "available")
     const customersData = customersToOptimize.map((id) => customers.find((c) => c.id === id)).filter(Boolean)
 
+    console.log("[v0] DEBUG: customersData sample:", customersData[0])
+    console.log("[v0] DEBUG: customersData[0].assigned_depot_id:", customersData[0]?.assigned_depot_id)
+    
     console.log("[v0] Sending to API:", {
       depots: depotsData.length,
       vehicles: vehiclesData.length,
