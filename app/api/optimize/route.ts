@@ -467,6 +467,7 @@ async function optimizeWithRailway(
   console.log("[v0] Railway request prepared")
   console.log("[v0] Depots:", railwayRequest.depots.length)
   console.log("[v0] Customers to optimize:", customersWithOrders.length)
+  console.log("[v0] Customer depot assignments:", railwayRequest.customers.map(c => ({ id: c.id, name: c.name, depot_id: c.depot_id })))
   console.log("[v0] Available vehicles:", availableVehicles.length)
 
   try {
