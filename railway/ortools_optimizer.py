@@ -78,15 +78,23 @@ def optimize_routes(depots: list, customers: list, vehicles: list, fuel_price: f
     for depot in depots:
         customers_by_depot[depot["id"]] = []
     
+    print(f"[OR-Tools] ========== MULTI-DEPOT GROUPING DEBUG ==========")
+    print(f"[OR-Tools] Total customers to group: {len(customers)}")
+    
     # Assign each customer to their assigned depot
     for customer in customers:
         depot_id = customer.get("depot_id")
+        print(f"[OR-Tools] Customer {customer.get('id')} ({customer.get('name')}): depot_id={depot_id}")
         if depot_id and depot_id in customers_by_depot:
             customers_by_depot[depot_id].append(customer)
         else:
             # Fallback: assign to first depot if no depot_id
             print(f"[OR-Tools] WARNING: Customer {customer.get('id')} has no depot_id, assigning to first depot")
             customers_by_depot[depots[0]["id"]].append(customer)
+    
+    print(f"[OR-Tools] Customers grouped by depot:")
+    for depot_id, depot_custs in customers_by_depot.items():
+        print(f"[OR-Tools]   {depot_id}: {len(depot_custs)} customers")
     
     # Calculate total demand per depot
     depot_demands = {}
