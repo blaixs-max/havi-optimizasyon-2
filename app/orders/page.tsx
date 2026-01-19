@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useOrders } from "@/lib/hooks/use-depot-data"
 
 interface Order {
   id: string
@@ -59,29 +60,25 @@ const priorityConfig = {
 }
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: ordersData, isLoading: loading, mutate } = useOrders()
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [cityFilter, setCityFilter] = useState<string>("all")
 
-  const fetchOrders = async () => {
-    try {
-      console.log("[v0] Fetching orders from /api/orders...")
-      const response = await fetch("/api/orders")
-      const data = await response.json()
-      console.log("[v0] Orders received from API:", data.length)
-      setOrders(data)
-    } catch (error) {
-      console.error("[v0] Error fetching orders:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchOrders()
-  }, [])
+  const orders = (ordersData || []).map((o: any) => ({
+    id: o.id,
+    customer_id: o.customer_id,
+    customer_name: o.customer_name,
+    customer_city: o.city,
+    customer_district: o.district,
+    customer_address: `${o.district || ""} ${o.city || ""}`.trim(),
+    pallets: o.pallets,
+    priority: 3,
+    order_date: o.order_date,
+    delivery_date: o.delivery_date,
+    status: o.status,
+    notes: o.notes,
+  }))
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
@@ -269,7 +266,7 @@ export default function OrdersPage() {
                                   body: JSON.stringify({ priority: Number.parseInt(value) }),
                                 })
                                 if (response.ok) {
-                                  fetchOrders()
+                                  mutate() // Use mutate to refresh ordersData
                                 }
                               } catch (error) {
                                 console.error("Priority update failed:", error)

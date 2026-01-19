@@ -42,7 +42,7 @@ export function OptimizationPanel() {
   // Use depot-aware SWR hooks
   const { data: depotsData, isLoading: depotsLoading } = useDepots()
   const { data: vehiclesData, isLoading: vehiclesLoading } = useVehicles()
-  const { data: customersData, isLoading: customersLoading } = useCustomers()
+  const { data: customersData, isLoading: customersLoading, mutate: mutateCustomers } = useCustomers()
   const { data: ordersData, isLoading: ordersLoading } = useOrders()
   
   const [optimizing, setOptimizing] = useState(false)
@@ -101,16 +101,9 @@ export function OptimizationPanel() {
 
   async function handleSaveCoordinates(updates: { id: string; lat: number; lng: number }[]) {
     saveCustomerCoordinates(updates)
-
-    setCustomers((prev) =>
-      prev.map((c) => {
-        const update = updates.find((u) => u.id === c.id)
-        if (update) {
-          return { ...c, lat: update.lat, lng: update.lng }
-        }
-        return c
-      }),
-    )
+    
+    // Revalidate customers data after coordinate update
+    await mutateCustomers()
   }
 
   async function handleOptimize() {
@@ -371,28 +364,19 @@ export function OptimizationPanel() {
 
               <Separator />
 
-              {/* Depot Selection */}
+              {/* Active Depot Info */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Depo Seçimi</Label>
-                <Select
-                  value={selectedDepots.length === depots.length ? "all" : selectedDepots[0]}
-                  onValueChange={(v) => {
-                    if (v === "all") setSelectedDepots(depots.map((d) => d.id))
-                    else setSelectedDepots([v])
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Depo seç" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tüm Depolar</SelectItem>
-                    {depots.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>
-                        {d.name || d.city}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-sm font-medium">Aktif Depo</Label>
+                <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-md">
+                  <Building className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">{selectedDepot?.name || selectedDepot?.city || "Depo seçilmedi"}</span>
+                  <Badge variant="outline" className="ml-auto text-xs">
+                    {availableVehicles.length} araç
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Depo değiştirmek için Settings sayfasını kullanın
+                </p>
               </div>
 
               {/* Fuel Price */}

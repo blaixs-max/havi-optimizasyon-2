@@ -1,38 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Truck } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useRoutes } from "@/lib/hooks/use-depot-data"
 
 export default function RotalarPage() {
-  const [routes, setRoutes] = useState([])
-  const [loading, setLoading] = useState(true)
-  const { toast } = useToast()
-
-  useEffect(() => {
-    fetchRoutes()
-  }, [])
-
-  const fetchRoutes = async () => {
-    try {
-      const response = await fetch("/api/routes")
-      if (!response.ok) throw new Error("Failed to fetch routes")
-      const data = await response.json()
-      setRoutes(data)
-    } catch (error) {
-      console.error("[v0] Failed to fetch routes:", error)
-      toast({
-        title: "Hata",
-        description: "Rotalar yüklenemedi",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { data: routes, isLoading: loading } = useRoutes()
 
   const statusConfig = {
     planned: { label: "Planlandı", color: "bg-blue-500" },
@@ -40,6 +15,8 @@ export default function RotalarPage() {
     completed: { label: "Tamamlandı", color: "bg-green-500" },
     cancelled: { label: "İptal Edildi", color: "bg-red-500" },
   }
+
+  const routesList = routes || []
 
   if (loading) {
     return <div className="p-8">Yükleniyor...</div>
@@ -54,7 +31,7 @@ export default function RotalarPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{routes.length} Rota Kaydı</CardTitle>
+          <CardTitle>{routesList.length} Rota Kaydı</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -72,7 +49,7 @@ export default function RotalarPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {routes.map((route) => {
+              {routesList.map((route: any) => {
                 const status = statusConfig[route.status] || statusConfig.planned
                 return (
                   <TableRow key={route.id}>

@@ -1,25 +1,46 @@
 import { NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
+import type { NextRequest } from "next/server"
 
 const sql = neon(process.env.DATABASE_URL || "")
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const routes = await sql`
-      SELECT 
-        r.*,
-        d.name as depot_name,
-        d.city as depot_city,
-        v.plate as vehicle_plate,
-        v.vehicle_type,
-        COUNT(rs.id) as stop_count
-      FROM routes r
-      LEFT JOIN depots d ON r.depot_id = d.id
-      LEFT JOIN vehicles v ON r.vehicle_id = v.id
-      LEFT JOIN route_stops rs ON r.id = rs.route_id
-      GROUP BY r.id, d.name, d.city, v.plate, v.vehicle_type
-      ORDER BY r.created_at DESC
-    `
+    const searchParams = request.nextUrl.searchParams
+    const depotId = searchParams.get("depot_id")
+    
+    const routes = depotId
+      ? await sql`
+          SELECT 
+            r.*,
+            d.name as depot_name,
+            d.city as depot_city,
+            v.plate as vehicle_plate,
+            v.vehicle_type,
+            COUNT(rs.id) as stop_count
+          FROM routes r
+          LEFT JOIN depots d ON r.depot_id = d.id
+          LEFT JOIN vehicles v ON r.vehicle_id = v.id
+          LEFT JOIN route_stops rs ON r.id = rs.route_id
+          WHERE r.depot_id = ${depotId}
+          GROUP BY r.id, d.name, d.city, v.plate, v.vehicle_type
+          ORDER BY r.created_at DESC
+        `
+      : await sql`
+          SELECT 
+            r.*,
+            d.name as depot_name,
+            d.city as depot_city,
+            v.plate as vehicle_plate,
+            v.vehicle_type,
+            COUNT(rs.id) as stop_count
+          FROM routes r
+          LEFT JOIN depots d ON r.depot_id = d.id
+          LEFT JOIN vehicles v ON r.vehicle_id = v.id
+          LEFT JOIN route_stops rs ON r.id = rs.route_id
+          GROUP BY r.id, d.name, d.city, v.plate, v.vehicle_type
+          ORDER BY r.created_at DESC
+        `
 
     return NextResponse.json(routes)
   } catch (error) {

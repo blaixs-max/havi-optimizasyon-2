@@ -26,3 +26,9 @@ export function useOrders() {
 export function useDepots() {
   return useSWR("/api/depots", fetcher)
 }
+
+export function useRoutes() {
+  const selectedDepotId = useDepotStore((state) => state.selectedDepotId)
+  const url = selectedDepotId ? `/api/routes?depot_id=${selectedDepotId}` : "/api/routes"
+  return useSWR(url, fetcher)
+}
