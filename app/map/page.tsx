@@ -40,13 +40,22 @@ import {
   ChevronRight,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useCustomers, useVehicles, useDepots, useRoutes } from "@/lib/hooks/use-depot-data"
+import { useCustomers, useVehicles, useDepots } from "@/lib/hooks/use-depot-data"
+import useSWR from "swr"
 
 export default function MapPage() {
   const { data: depotsData, isLoading: depotsLoading } = useDepots()
   const { data: vehiclesData, isLoading: vehiclesLoading } = useVehicles()
   const { data: customersData, isLoading: customersLoading } = useCustomers()
-  const { data: savedRoutesData, mutate: mutateRoutes } = useRoutes()
+  
+  // Map page should show ALL routes from ALL depots, not filtered
+  const { data: savedRoutesData, mutate: mutateRoutes } = useSWR("/api/routes", async (url) => {
+    const res = await fetch(url)
+    return res.json()
+  }, {
+    revalidateOnFocus: true,
+    dedupingInterval: 2000,
+  })
   
   const [routes, setRoutes] = useState<MockRoute[]>([])
   const [selectedRoute, setSelectedRoute] = useState<MockRoute | null>(null)
@@ -63,16 +72,36 @@ export default function MapPage() {
     // Load saved routes from database (highest priority)
     if (savedRoutesData && savedRoutesData.length > 0) {
       console.log("[v0] Loading saved routes from database:", savedRoutesData.length)
+      console.log("[v0] First route sample:", savedRoutesData[0])
+      
       const formattedRoutes = savedRoutesData.map((r: any) => ({
         id: r.id,
         vehicle_id: r.vehicle_id,
+        plate: r.vehicle_plate || "Unknown",
+        vehicle_type: r.vehicle_type || 1,
         depot_id: r.depot_id,
-        stops: [], // Will be loaded from route_stops table
+        depot_name: r.depot_name || "Unknown Depot",
+        stops: (r.stops || []).map((s: any, idx: number) => ({
+          customerId: s.customer_id,
+          customerName: s.customer_name,
+          location: { lat: parseFloat(s.lat) || 0, lng: parseFloat(s.lng) || 0 },
+          demand: s.cumulative_load_pallets || 0,
+          stopOrder: s.stop_order || idx + 1,
+          cumulativeLoad: s.cumulative_load_pallets || 0,
+          distanceFromPrev: s.distance_from_prev_km || 0,
+          durationFromPrev: s.duration_from_prev_min || 0,
+          arrivalTime: s.arrival_time,
+        })),
+        distance_km: r.total_distance || 0,
         total_distance: r.total_distance || 0,
         total_duration: r.total_duration || 0,
         total_cost: r.total_cost || 0,
+        total_pallets: r.total_pallets || 0,
         status: r.status || "pending",
       }))
+      
+      console.log("[v0] Formatted routes:", formattedRoutes.length, "routes")
+      console.log("[v0] First formatted route:", formattedRoutes[0])
       setRoutes(formattedRoutes)
     } else {
       // Fallback to localStorage optimization results
