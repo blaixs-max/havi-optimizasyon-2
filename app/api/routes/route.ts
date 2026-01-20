@@ -42,7 +42,30 @@ export async function GET(request: NextRequest) {
           ORDER BY r.created_at DESC
         `
 
-    return NextResponse.json(routes)
+    // Fetch route_stops for each route
+    const routesWithStops = await Promise.all(
+      routes.map(async (route: any) => {
+        const stops = await sql`
+          SELECT 
+            rs.*,
+            c.name as customer_name,
+            c.lat,
+            c.lng,
+            c.city,
+            c.district
+          FROM route_stops rs
+          LEFT JOIN customers c ON rs.customer_id = c.id
+          WHERE rs.route_id = ${route.id}
+          ORDER BY rs.stop_order ASC
+        `
+        return {
+          ...route,
+          stops: stops || []
+        }
+      })
+    )
+
+    return NextResponse.json(routesWithStops)
   } catch (error) {
     console.error("[v0] Failed to fetch routes:", error)
     return NextResponse.json({ error: "Failed to fetch routes" }, { status: 500 })
@@ -96,7 +119,7 @@ export async function POST(request: Request) {
             ${stop.cumulativeDistance || 0},
             ${stop.cumulativeLoad || 0},
             ${stop.arrivalTime || null},
-            'planned'
+            'pending'
           )
         `
       }
