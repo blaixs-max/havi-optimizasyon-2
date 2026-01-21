@@ -79,33 +79,20 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
   }
 
   useEffect(() => {
-    // Leaflet loading logic here
-  }, [])
-
-  useEffect(() => {
-    // Map readiness logic here
-  }, [viewMode])
-
-  useEffect(() => {
-    // Map rendering logic here
-  }, [viewMode, result.routes, depots])
-
-  useEffect(() => {
     if (viewMode !== "map" || !mapRef.current) return
-    if (mapInstanceRef.current) return // Already initialized
+    if (mapInstanceRef.current) return
 
     const initMap = async () => {
       try {
         const L = (await import("leaflet")).default
         await import("leaflet/dist/leaflet.css")
 
-        // Container zaten map varsa temizle
         if (mapInstanceRef.current) {
           mapInstanceRef.current.remove()
         }
 
         const map = L.map(mapRef.current!, {
-          center: [39.9334, 32.8597], // Turkiye merkezi
+          center: [39.9334, 32.8597],
           zoom: 6,
         })
 
@@ -115,14 +102,12 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
 
         mapInstanceRef.current = map
 
-        // Rotalari haritaya ekle
         if (result.routes && result.routes.length > 0) {
           const bounds: [number, number][] = []
 
           result.routes.forEach((route, index) => {
             const color = ROUTE_COLORS?.[index % ROUTE_COLORS.length] || "#3B82F6"
 
-            // Depo noktasi
             const depot = depots?.find((d) => d.id === route.depotId)
             if (depot?.lat && depot?.lng) {
               bounds.push([depot.lat, depot.lng])
@@ -137,7 +122,6 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
                 .addTo(map)
             }
 
-            // Duraklar
             const routePoints: [number, number][] = []
             if (depot?.lat && depot?.lng) {
               routePoints.push([depot.lat, depot.lng])
@@ -165,22 +149,18 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
               }
             })
 
-            // Depoya donus
             if (depot?.lat && depot?.lng) {
               routePoints.push([depot.lat, depot.lng])
             }
 
-            // Rota cizgisi
             if (route.geometry && route.geometry.length > 0) {
-              // ORS geometry kullan (gerçek yol)
-              const geometryPoints: [number, number][] = route.geometry.map((coord: number[]) => [coord[1], coord[0]]) // lat, lng
+              const geometryPoints: [number, number][] = route.geometry.map((coord: number[]) => [coord[1], coord[0]])
               L.polyline(geometryPoints, {
                 color: color,
                 weight: 4,
                 opacity: 0.8,
               }).addTo(map)
             } else if (routePoints.length > 1) {
-              // Fallback: kuş uçuşu
               L.polyline(routePoints, {
                 color: color,
                 weight: 4,
@@ -190,7 +170,6 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
             }
           })
 
-          // Haritayi bounds'a fit et
           if (bounds.length > 0) {
             map.fitBounds(bounds, { padding: [50, 50] })
           }
@@ -262,7 +241,6 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
         </Badge>
       </div>
 
-      {/* Ozet Kartlar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
           <CardContent className="p-4">
@@ -321,7 +299,6 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
         </Card>
       </div>
 
-      {/* Maliyet Dagilimi */}
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
@@ -367,7 +344,6 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
         </CardContent>
       </Card>
 
-      {/* Rotalar */}
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
@@ -385,7 +361,7 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Tabs value={viewMode} onValueChange={setViewMode}>
+          <Tabs value={viewMode} onValueChange={(val) => setViewMode(val as "list" | "map")}>
             <div className="px-4 border-b">
               <TabsList className="h-9">
                 <TabsTrigger value="list" className="text-xs gap-1">
@@ -471,13 +447,10 @@ function RouteCard({ route, index, expanded, onToggle, depots }: RouteCardProps)
                 >
                   {route.depotName || depot?.name || "Depo"}
                 </Badge>
-                {(tollCrossings.length > 0 || highwayUsage.length > 0) && (
-                  <Badge variant="secondary" className="text-xs gap-1">
-                    <Landmark className="h-3 w-3" />
-                    {tollCrossings.length + highwayUsage.length} gecis
-                  </Badge>
-                )}
               </div>
+              {route.id && (
+                <div className="text-xs text-muted-foreground mt-0.5 font-mono">ID: {route.id}</div>
+              )}
               <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                 <span>{route.stops?.length || 0} durak</span>
                 <span>{totalDistance.toFixed(1)} km</span>

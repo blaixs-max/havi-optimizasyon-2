@@ -242,28 +242,31 @@ export function OptimizationPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          routes: result.routes.map((route) => ({
-            id: `route-${Date.now()}-${route.vehicleId}`,
-            vehicleId: route.vehicleId,
-            depotId: route.depotId,
-            routeDate: new Date().toISOString().split("T")[0],
-            totalDistance: route.totalDistance,
-            totalDuration: route.totalDuration,
-            totalPallets: route.totalPallets,
-            totalCost: route.totalCost,
-            fuelCost: route.fuelCost,
-            distanceCost: route.distanceCost,
-            fixedCost: route.fixedCost,
-            stops: route.stops.map((stop) => ({
-              customerId: stop.customerId,
-              stopOrder: stop.stopOrder,
-              distanceFromPrev: stop.distanceFromPrev,
-              durationFromPrev: stop.durationFromPrev,
-              cumulativeDistance: stop.cumulativeDistance,
-              cumulativeLoad: stop.cumulativeLoad,
-              arrivalTime: stop.arrivalTime,
-            })),
-          })),
+          routes: result.routes.map((route) => {
+            console.log("[v0] Saving route with ID:", route.id)
+            return {
+              id: route.id || `route-${Date.now()}-${route.vehicleId}`,
+              vehicleId: route.vehicleId,
+              depotId: route.depotId,
+              routeDate: new Date().toISOString().split("T")[0],
+              totalDistance: route.totalDistance,
+              totalDuration: route.totalDuration,
+              totalPallets: route.totalPallets || route.totalLoad || 0,
+              totalCost: route.totalCost,
+              fuelCost: route.fuelCost,
+              distanceCost: route.distanceCost,
+              fixedCost: route.fixedCost,
+              stops: route.stops.map((stop) => ({
+                customerId: stop.customerId,
+                stopOrder: stop.stopOrder,
+                distanceFromPrev: stop.distanceFromPrev,
+                durationFromPrev: stop.durationFromPrev,
+                cumulativeDistance: stop.cumulativeDistance,
+                cumulativeLoad: stop.cumulativeLoad,
+                arrivalTime: stop.arrivalTime,
+              })),
+            }
+          }),
         }),
       })
 

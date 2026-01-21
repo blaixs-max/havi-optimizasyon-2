@@ -74,31 +74,40 @@ export default function MapPage() {
       console.log("[v0] Loading saved routes from database:", savedRoutesData.length)
       console.log("[v0] First route sample:", savedRoutesData[0])
       
-      const formattedRoutes = savedRoutesData.map((r: any) => ({
-        id: r.id,
-        vehicle_id: r.vehicle_id,
-        plate: r.vehicle_plate || "Unknown",
-        vehicle_type: r.vehicle_type || 1,
-        depot_id: r.depot_id,
-        depot_name: r.depot_name || "Unknown Depot",
-        stops: (r.stops || []).map((s: any, idx: number) => ({
-          customerId: s.customer_id,
-          customerName: s.customer_name,
-          location: { lat: parseFloat(s.lat) || 0, lng: parseFloat(s.lng) || 0 },
-          demand: s.cumulative_load_pallets || 0,
-          stopOrder: s.stop_order || idx + 1,
-          cumulativeLoad: s.cumulative_load_pallets || 0,
-          distanceFromPrev: s.distance_from_prev_km || 0,
-          durationFromPrev: s.duration_from_prev_min || 0,
-          arrivalTime: s.arrival_time,
-        })),
-        distance_km: r.total_distance || 0,
-        total_distance: r.total_distance || 0,
-        total_duration: r.total_duration || 0,
-        total_cost: r.total_cost || 0,
-        total_pallets: r.total_pallets || 0,
-        status: r.status || "pending",
-      }))
+      const formattedRoutes = savedRoutesData.map((r: any) => {
+        // Database uses total_distance_km, total_duration_min fields
+        const distanceKm = parseFloat(r.total_distance_km) || parseFloat(r.distance_km) || 0
+        const durationMin = parseInt(r.total_duration_min) || parseInt(r.total_duration) || 0
+        const totalCost = parseFloat(r.total_cost) || 0
+        const fuelCost = parseFloat(r.fuel_cost) || 0
+        
+        return {
+          id: r.id,
+          vehicle_id: r.vehicle_id,
+          plate: r.vehicle_plate || "Unknown",
+          vehicle_type: r.vehicle_type || 1,
+          depot_id: r.depot_id,
+          depot_name: r.depot_name || "Unknown Depot",
+          stops: (r.stops || []).map((s: any, idx: number) => ({
+            customerId: s.customer_id,
+            customerName: s.customer_name,
+            location: { lat: parseFloat(s.lat) || 0, lng: parseFloat(s.lng) || 0 },
+            demand: s.cumulative_load_pallets || 0,
+            stopOrder: s.stop_order || idx + 1,
+            cumulativeLoad: s.cumulative_load_pallets || 0,
+            distanceFromPrev: parseFloat(s.distance_from_prev_km) || 0,
+            durationFromPrev: parseInt(s.duration_from_prev_min) || 0,
+            arrivalTime: s.arrival_time,
+          })),
+          distance_km: distanceKm,
+          total_distance: distanceKm,
+          total_duration: durationMin,
+          total_cost: totalCost,
+          fuel_cost: fuelCost,
+          total_pallets: parseInt(r.total_pallets) || 0,
+          status: r.status || "pending",
+        }
+      })
       
       console.log("[v0] Formatted routes:", formattedRoutes.length, "routes")
       console.log("[v0] First formatted route:", formattedRoutes[0])
@@ -310,6 +319,11 @@ export default function MapPage() {
                           if (!isSelected) setMobileView("map")
                         }}
                       >
+                        {route.id && (
+                          <div className="text-xs text-muted-foreground mb-1 font-mono">
+                            ID: {route.id}
+                          </div>
+                        )}
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <Truck className="w-4 h-4 text-slate-600" />

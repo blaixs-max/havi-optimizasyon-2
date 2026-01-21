@@ -293,8 +293,12 @@ async function optimizeWithORS(
           const totalCost = fuelCost + distanceCost + fixedCost + tollCost
           const vehicleCapacity = vehicle?.capacity_pallet || vehicle?.capacity_pallets || 12
           const totalLoad = stops.reduce((sum, s) => sum + s.demand, 0)
+          
+          // Generate unique route ID: route-{timestamp}-{vehicleId}
+          const routeId = `route-${Date.now()}-${vehicle?.id || `v-${route.vehicle}`}`
 
           allRoutes.push({
+            id: routeId,
             vehicleId: vehicle?.id || `vehicle-${route.vehicle}`,
             vehiclePlate: vehicle?.plate || `Araç ${route.vehicle}`,
             vehicleType: vehicle?.vehicle_type || "truck",
@@ -541,18 +545,24 @@ async function optimizeWithRailway(
     const customerMap = new Map(customers.map((c) => [c.id, c]))
     const depotMap = new Map(depots.map((d) => [d.id, d]))
 
-    const formattedRoutes = railwayResult.routes.map((route: any, index: number) => ({
-      vehicleId: route.vehicle_id || `vehicle-${index}`,
-      vehiclePlate: (() => {
-        const plate = route.license_plate || route.plate || `Araç ${index + 1}`
-        console.log(
-          `[v0] Route ${index} plate from Railway: license_plate=${route.license_plate}, plate=${route.plate}, using=${plate}`,
-        )
-        return plate
-      })(),
-      vehicleType: route.vehicle_type || "Kamyon",
-      depotId: route.depot_id,
-      depotName: route.depot_name || depotMap.get(route.depot_id)?.name || "Depo",
+    const formattedRoutes = railwayResult.routes.map((route: any, index: number) => {
+      // Generate unique route ID: route-{timestamp}-{vehicleId}
+      const vehicleId = route.vehicle_id || `vehicle-${index}`
+      const routeId = `route-${Date.now()}-${vehicleId}`
+      
+      return {
+        id: routeId,
+        vehicleId: vehicleId,
+        vehiclePlate: (() => {
+          const plate = route.license_plate || route.plate || `Araç ${index + 1}`
+          console.log(
+            `[v0] Route ${index} plate from Railway: license_plate=${route.license_plate}, plate=${route.plate}, using=${plate}`,
+          )
+          return plate
+        })(),
+        vehicleType: route.vehicle_type || "Kamyon",
+        depotId: route.depot_id,
+        depotName: route.depot_name || depotMap.get(route.depot_id)?.name || "Depo",
       totalDistance: route.distance_km || route.total_distance_km || 0,
       distance: route.distance_km || route.total_distance_km || 0,
       totalDuration: route.duration_minutes || Math.round(((route.distance_km || 0) / 60) * 60) || 0,
@@ -582,7 +592,8 @@ async function optimizeWithRailway(
         arrivalTime: stop.arrival_time || null,
       })),
       geometry: route.geometry || [],
-    }))
+    }
+  })
 
     const summary = {
       totalDistance: formattedRoutes.reduce((sum, r) => sum + (r.totalDistance || 0), 0),
