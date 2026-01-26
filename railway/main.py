@@ -76,9 +76,23 @@ def health():
 @app.post("/optimize", response_model=OptimizeResponse)
 def optimize(request: OptimizeRequest):
     try:
+        print(f"[Railway] ========== OPTIMIZATION REQUEST ==========")
+        print(f"[Railway] Depots: {len(request.depots)}")
+        print(f"[Railway] Customers: {len(request.customers)}")
+        print(f"[Railway] Vehicles: {len(request.vehicles)}")
+        print(f"[Railway] Fuel price: {request.fuel_price}")
+        
+        # Calculate total demand and capacity
+        total_demand = sum(c.demand_pallets for c in request.customers)
+        total_capacity = sum(v.capacity_pallets for v in request.vehicles)
+        print(f"[Railway] Total demand: {total_demand} pallets")
+        print(f"[Railway] Total capacity: {total_capacity} pallets")
+        print(f"[Railway] Demand/Capacity ratio: {total_demand/total_capacity:.2f}" if total_capacity > 0 else "[Railway] WARNING: Total capacity is 0!")
+        
         # OSRM URL'yi environment variable'a kaydet (optimizer içinde kullanılacak)
         if request.osrm_url:
             os.environ['OSRM_URL'] = request.osrm_url
+            print(f"[Railway] Using OSRM URL: {request.osrm_url}")
         
         # OR-Tools optimizer'ı çağır
         result = optimize_routes(
@@ -88,6 +102,8 @@ def optimize(request: OptimizeRequest):
             fuel_price=request.fuel_price
         )
         
+        print(f"[Railway] Optimization successful: {len(result['routes'])} routes generated")
+        
         return OptimizeResponse(
             success=True,
             routes=result["routes"],
@@ -95,6 +111,7 @@ def optimize(request: OptimizeRequest):
         )
     
     except Exception as e:
+        print(f"[Railway] ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

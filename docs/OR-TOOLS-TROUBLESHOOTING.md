@@ -75,9 +75,9 @@ Doğru format:
 ### Railway Servis Testi
 
 Tarayıcınızda şu adrese gidin:
-```
+\`\`\`
 https://your-vercel-app.vercel.app/test-railway
-```
+\`\`\`
 
 Bu sayfa:
 - ✅ Railway servisi çalışıyor mu kontrol eder
@@ -88,7 +88,7 @@ Bu sayfa:
 ### Manuel API Testi
 
 Terminal'den test:
-```bash
+\`\`\`bash
 # Health check
 curl https://your-railway-service.railway.app/health
 
@@ -101,7 +101,7 @@ curl -X POST https://your-railway-service.railway.app/optimize \
     "depots": [],
     "fuel_price": 47.5
   }'
-```
+\`\`\`
 
 ## Alternatif: VROOM Kullanın
 
@@ -122,7 +122,7 @@ VROOM, ORS (OpenRouteService) API kullanır ve production-ready bir çözümdür
 ## Environment Variables Listesi
 
 Tam liste:
-```env
+\`\`\`env
 # Gerekli
 DATABASE_URL=postgresql://...
 ORS_API_KEY=your-ors-api-key
@@ -132,7 +132,7 @@ RAILWAY_API_URL=https://your-service.railway.app
 
 # Opsiyonel
 OSRM_URL=https://router.project-osrm.org
-```
+\`\`\`
 
 ## Railway Deploy Talimatları
 

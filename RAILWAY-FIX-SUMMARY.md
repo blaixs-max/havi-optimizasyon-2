@@ -1,9 +1,9 @@
 # Railway OR-Tools Sorunu Çözüldü
 
 ## Sorun
-```
+\`\`\`
 ModuleNotFoundError: No module named 'requests'
-```
+\`\`\`
 
 Railway servisi başlamıyordu çünkü `requests` modülü `requirements-railway.txt` dosyasında eksikti.
 
@@ -12,14 +12,14 @@ Railway servisi başlamıyordu çünkü `requests` modülü `requirements-railwa
 ## Yapılan Düzeltmeler
 
 ### 1. requirements-railway.txt Güncellendi
-```diff
+\`\`\`diff
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 ortools==9.8.3296
 numpy==1.26.2
 pydantic==2.5.0
 + requests==2.31.0
-```
+\`\`\`
 
 ### 2. Dockerfile İyileştirildi
 - Package verification eklendi
@@ -41,10 +41,10 @@ pydantic==2.5.0
 2. Latest deployment'ı bulun
 3. "Redeploy" butonuna tıklayın veya GitHub'a push yapın
 4. Logs'ta şunu görmelisiniz:
-   ```
+   \`\`\`
    All packages installed successfully
    INFO: Uvicorn running on http://0.0.0.0:8080
-   ```
+   \`\`\`
 
 ### Adım 2: Railway URL'i Vercel'e Ekleyin
 1. Railway dashboard → Settings → Networking
@@ -66,21 +66,21 @@ pydantic==2.5.0
 ## Hala Çalışmazsa?
 
 ### Railway Logs Kontrolü
-```bash
+\`\`\`bash
 # Railway CLI kullanıyorsanız
 railway logs
-```
+\`\`\`
 
 veya Railway dashboard → Logs bölümünden kontrol edin.
 
 ### Beklenen Başarılı Log
-```
+\`\`\`
 All packages installed successfully
 INFO:     Started server process [1]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8080
-```
+\`\`\`
 
 ### Hata Devam Ederse
 
@@ -91,14 +91,14 @@ INFO:     Uvicorn running on http://0.0.0.0:8080
 
 **Option 2: Manuel Test**
 Railway servisinizin çalışıp çalışmadığını kontrol edin:
-```bash
+\`\`\`bash
 curl https://your-railway-url.railway.app/health
-```
+\`\`\`
 
 Beklenen yanıt:
-```json
+\`\`\`json
 {"status":"healthy"}
-```
+\`\`\`
 
 ---
 

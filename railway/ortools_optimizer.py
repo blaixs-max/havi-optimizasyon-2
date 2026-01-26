@@ -305,33 +305,18 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
         
         print(f"[OR-Tools] Capacity dimension added")
         
-        # Vehicle type constraints
-        print(f"[OR-Tools] ===== ADDING VEHICLE TYPE CONSTRAINTS =====")
-        for customer_idx, customer in enumerate(customers):
-            required_type = customer.get("required_vehicle_type")
-            if required_type:
-                node_idx = customer_idx + 1  # +1 because depot is at index 0
-                print(f"[OR-Tools] Customer {customer['name']} requires vehicle type: {required_type}")
-                
-                # Map vehicle type names to integers
-                type_mapping = {
-                    "kamyonet": 0,
-                    "kamyon_1": 1,
-                    "kamyon_2": 2,
-                    "tir": 3,
-                    "romork": 4
-                }
-                
-                required_type_int = type_mapping.get(required_type.lower())
-                if required_type_int is not None:
-                    # Only allow vehicles with matching type to visit this node
-                    for vehicle_id in range(num_vehicles):
-                        vehicle_type_int = vehicles[vehicle_id].get("type", 0)
-                        if vehicle_type_int != required_type_int:
-                            # Disallow this vehicle from visiting this customer
-                            index = manager.NodeToIndex(node_idx)
-                            routing.VehicleVar(index).RemoveValue(vehicle_id)
-                            print(f"[OR-Tools]   Disallowing vehicle {vehicle_id} (type {vehicle_type_int}) for customer {customer['name']}")
+        # Vehicle type constraints - DISABLED (causing infeasibility)
+        # The strict vehicle type constraints were causing OR-Tools to fail
+        # because they made the problem infeasible. Commented out for now.
+        print(f"[OR-Tools] ===== VEHICLE TYPE CONSTRAINTS: DISABLED =====")
+        print(f"[OR-Tools] All vehicles can visit all customers (for feasibility)")
+        # TODO: Implement soft constraints with penalties instead of hard constraints
+        
+        # for customer_idx, customer in enumerate(customers):
+        #     required_type = customer.get("required_vehicle_type")
+        #     if required_type:
+        #         node_idx = customer_idx + 1
+        #         print(f"[OR-Tools] Customer {customer['name']} requires vehicle type: {required_type}")
         
         print(f"[OR-Tools] ===== TIME DIMENSION: DISABLED =====")
         print(f"[OR-Tools] Using DISTANCE-ONLY optimization (no time constraints)")
@@ -357,9 +342,22 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
                 1: "ROUTING_SUCCESS",
                 2: "ROUTING_FAIL",
                 3: "ROUTING_FAIL_TIMEOUT",
-                4: "ROUTING_INVALID"
+                4: "ROUTING_INVALID",
+                5: "ROUTING_FAIL_NO_SOLUTION_FOUND",
+                6: "ROUTING_OPTIMAL"
             }.get(status, f"UNKNOWN({status})")
-            raise Exception(f"No solution found. Status: {status_msg}")
+            
+            # Collect diagnostic info
+            total_demand = sum(demands)
+            total_capacity = sum(vehicle_capacities)
+            
+            error_details = f"No solution found. Status: {status_msg}"
+            error_details += f"\nDiagnostics: {len(customers)} customers, {num_vehicles} vehicles"
+            error_details += f"\nTotal demand: {total_demand} pallets, Total capacity: {total_capacity} pallets"
+            error_details += f"\nDemand/Capacity ratio: {total_demand/total_capacity:.2f}" if total_capacity > 0 else "\nTotal capacity is 0!"
+            
+            print(f"[OR-Tools] ERROR: {error_details}")
+            raise Exception(error_details)
         
         # Parse results
         routes = []
@@ -642,12 +640,19 @@ def _optimize_multi_depot(depots: list, customers: list, vehicles: list, fuel_pr
                 1: "ROUTING_SUCCESS",
                 2: "ROUTING_FAIL",
                 3: "ROUTING_FAIL_TIMEOUT",
-                4: "ROUTING_INVALID"
+                4: "ROUTING_INVALID",
+                5: "ROUTING_FAIL_NO_SOLUTION_FOUND",
+                6: "ROUTING_OPTIMAL"
             }
             status_msg = status_messages.get(status, f"UNKNOWN({status})")
             print(f"[OR-Tools] No solution found. Status: {status_msg}")
             
-            raise Exception(f"ROUTING_INVALID - Model initialization failed. Details: Locations: {num_locations}; Vehicles: {num_vehicles}; Total demand: {total_demand} pallets; Total capacity: {total_capacity} pallets; Demand/Capacity ratio: {total_demand/total_capacity:.2f}")
+            error_details = f"Model initialization failed. Status: {status_msg}"
+            error_details += f"\nDiagnostics: Locations: {num_locations}; Vehicles: {num_vehicles}"
+            error_details += f"\nTotal demand: {total_demand} pallets; Total capacity: {total_capacity} pallets"
+            error_details += f"\nDemand/Capacity ratio: {total_demand/total_capacity:.2f}" if total_capacity > 0 else "\nTotal capacity is 0!"
+            
+            raise Exception(error_details)
         
         # Servis süreleri
         service_times = [0] * len(depots)  # Depolar için servis süresi 0

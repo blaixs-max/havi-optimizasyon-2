@@ -519,6 +519,14 @@ async function optimizeWithRailway(
   console.log("[v0] DEBUG: customersWithOrders[0].assigned_depot_id:", customersWithOrders[0]?.assigned_depot_id)
   console.log("[v0] Customer depot assignments:", railwayRequest.customers.map(c => ({ id: c.id, name: c.name, depot_id: c.depot_id })))
   console.log("[v0] Available vehicles:", availableVehicles.length)
+  console.log("[v0] Vehicle details:", railwayRequest.vehicles.map(v => ({ 
+    id: v.id, 
+    type: v.type, 
+    type_name: v.vehicle_type_name,
+    capacity: v.capacity_pallets 
+  })))
+  console.log("[v0] Total demand:", railwayRequest.customers.reduce((sum, c) => sum + c.demand_pallets, 0))
+  console.log("[v0] Total capacity:", railwayRequest.vehicles.reduce((sum, v) => sum + v.capacity_pallets, 0))
 
   try {
     const controller = new AbortController()

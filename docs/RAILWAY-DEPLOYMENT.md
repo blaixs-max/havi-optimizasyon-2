@@ -30,27 +30,27 @@ Railway otomatik olarak root dizindeki `Dockerfile`'ı bulacak ve kullanacak.
 
 Railway dashboard'da şu environment variable'ı ekle:
 
-```
+\`\`\`
 OSRM_URL=http://router.project-osrm.org
-```
+\`\`\`
 
 veya kendi OSRM instance'ınız varsa:
 
-```
+\`\`\`
 OSRM_URL=https://your-osrm-instance.com
-```
+\`\`\`
 
 ### 4. Deploy
 
 Railway otomatik olarak deploy edecek. Logs'ta şunları göreceksiniz:
 
-```
+\`\`\`
 All packages installed successfully
 INFO:     Started server process
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8080
-```
+\`\`\`
 
 ### 5. Railway URL'ini Alın
 
@@ -117,14 +117,14 @@ Vercel dashboard'da:
 ### Servis Yanıt Vermiyorsa
 
 **1. Health Check Test**
-```bash
+\`\`\`bash
 curl https://your-service.railway.app/health
-```
+\`\`\`
 
 Beklenen yanıt:
-```json
+\`\`\`json
 {"status":"healthy"}
-```
+\`\`\`
 
 **2. Servis Logs'u Kontrol Et**
 - Railway dashboard → Logs
@@ -135,9 +135,9 @@ Beklenen yanıt:
 - Railway servisleri sleep modundan uyanma süresi gerektirir
 
 **4. OSRM_URL Kontrolü**
-```bash
+\`\`\`bash
 curl http://router.project-osrm.org/route/v1/driving/13.388860,52.517037;13.397634,52.529407?overview=false
-```
+\`\`\`
 
 OSRM çalışıyorsa JSON yanıt alırsınız.
 
@@ -169,7 +169,7 @@ Railway setup yapmak istemiyorsanız:
 
 ## Dosya Yapısı
 
-```
+\`\`\`
 /
 ├── Dockerfile                  # Railway için
 ├── requirements-railway.txt    # Python dependencies
@@ -178,7 +178,7 @@ Railway setup yapmak istemiyorsanız:
 │   ├── ortools_optimizer.py   # OR-Tools logic
 │   ├── Dockerfile             # Alternative (kullanılmıyor)
 │   └── requirements.txt       # Alternative (kullanılmıyor)
-```
+\`\`\`
 
 **Not:** Root dizindeki `Dockerfile` ve `requirements-railway.txt` kullanılıyor.
 
