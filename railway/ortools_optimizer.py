@@ -336,9 +336,9 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
         # In production, consider implementing this as a post-optimization filter or
         # using OR-Tools allowed/forbidden arc callbacks with proper slack
         
-        # TIME DIMENSION: RELAXED for better feasibility
-        print(f"[OR-Tools] ===== TIME DIMENSION: RELAXED =====")
-        print(f"[OR-Tools] Maximum route duration: 960 minutes (16 hours) - RELAXED")
+        # TIME DIMENSION: 600 minutes (10 hours) per vehicle
+        print(f"[OR-Tools] ===== TIME DIMENSION: ENABLED =====")
+        print(f"[OR-Tools] Maximum route duration: 600 minutes (10 hours)")
         
         # Time callback: distance/speed + service time
         def time_callback(from_index, to_index):
@@ -355,24 +355,24 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
         
         time_callback_index = routing.RegisterTransitCallback(time_callback)
         
-        # Add time dimension with RELAXED limits for feasibility
-        # Allow 120 minutes of slack time for flexibility
+        # Add time dimension with 600-minute max per vehicle
+        # Allow slack time for flexibility but keep total under 600
         routing.AddDimension(
             time_callback_index,
-            120,  # 120 minutes slack time for traffic/delays
-            1080,  # maximum 1080 minutes per vehicle (960 + slack) = 18 hours
+            60,  # 60 minutes slack time for traffic/delays
+            600,  # maximum 600 minutes per vehicle (10 hours strict limit)
             True,  # start cumul to zero
             'Time'
         )
         
         time_dimension = routing.GetDimensionOrDie('Time')
         
-        # Set maximum time for each vehicle (RELAXED)
+        # Set maximum time for each vehicle (600 minutes strict)
         for vehicle_id in range(num_vehicles):
             end_index = routing.End(vehicle_id)
-            time_dimension.CumulVar(end_index).SetMax(1080)  # 1080 dakika max (18 saat)
+            time_dimension.CumulVar(end_index).SetMax(600)  # 600 dakika max (10 saat)
         
-        print(f"[OR-Tools] Time dimension added with RELAXED 960-minute limit per vehicle")
+        print(f"[OR-Tools] Time dimension added with 600-minute strict limit per vehicle")
         
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
         
