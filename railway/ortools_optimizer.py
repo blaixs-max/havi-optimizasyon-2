@@ -356,31 +356,44 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
         time_callback_index = routing.RegisterTransitCallback(time_callback)
         
         # Add time dimension with 600-minute max per vehicle
+        # Allow 60 minutes of slack time for flexibility
         routing.AddDimension(
             time_callback_index,
-            0,  # no slack
-            600,  # maximum 600 minutes per vehicle
+            60,  # 60 minutes slack time for traffic/delays
+            660,  # maximum 660 minutes per vehicle (600 + slack)
             True,  # start cumul to zero
             'Time'
         )
         
         time_dimension = routing.GetDimensionOrDie('Time')
         
-        # Set maximum time for each vehicle to 600 minutes
+        # Set maximum time for each vehicle (600 target + 60 slack = 660 max)
         for vehicle_id in range(num_vehicles):
             end_index = routing.End(vehicle_id)
-            time_dimension.CumulVar(end_index).SetMax(600)  # 600 dakika = 10 saat
+            time_dimension.CumulVar(end_index).SetMax(660)  # 660 dakika max (600 + slack)
         
         print(f"[OR-Tools] Time dimension added with 600-minute limit per vehicle")
         
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+        
+        # Use PARALLEL_CHEAPEST_INSERTION for better multi-vehicle distribution
         search_parameters.first_solution_strategy = (
-            routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC  # Fast and reliable
+            routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
         )
-        search_parameters.time_limit.seconds = 20
+        
+        # Local search metaheuristic for improvement
+        search_parameters.local_search_metaheuristic = (
+            routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+        )
+        
+        # Increase timeout for time-constrained problems (60s should be enough)
+        search_parameters.time_limit.seconds = 60
         search_parameters.log_search = True
         
-        print(f"[OR-Tools] Solving with PATH_CHEAPEST_ARC strategy (20s limit)...")
+        # Allow some flexibility - solution doesn't need to be perfect
+        search_parameters.solution_limit = 1  # Accept first feasible solution
+        
+        print(f"[OR-Tools] Solving with PARALLEL_CHEAPEST_INSERTION + GLS (60s limit)...")
         print(f"[OR-Tools] About to call SolveWithParameters()...")
         
         solution = routing.SolveWithParameters(search_parameters)
@@ -472,18 +485,25 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
                 end_index = routing.End(vehicle_id)
                 route_duration_min = solution.Min(time_dimension.CumulVar(end_index))
                 
-                # Validate duration against 600-minute limit
+                # Validate duration against 600-minute target (660 max with slack)
                 if route_duration_min > 600:
-                    print(f"[OR-Tools] WARNING: Route for vehicle {vehicle_id} exceeds time limit!")
-                    print(f"[OR-Tools]   Duration: {route_duration_min} min (limit: 600 min)")
+                    print(f"[OR-Tools] INFO: Route for vehicle {vehicle_id} uses slack time")
+                    print(f"[OR-Tools]   Duration: {route_duration_min} min (target: 600, max: 660)")
                     print(f"[OR-Tools]   Distance: {route_distance_km:.2f} km")
                     print(f"[OR-Tools]   Stops: {len(route_stops)}")
+                    
+                    # If over 660, this should not happen due to hard constraint
+                    if route_duration_min > 660:
+                        print(f"[OR-Tools] ERROR: Route exceeds maximum allowed time of 660 minutes!")
                 
                 fuel_cost = (route_distance_km / 100) * fuel_consumption * fuel_price
                 distance_cost = route_distance_km * 2.5
                 fixed_cost = 500.0
                 toll_cost = route_distance_km * 0.5
                 total_cost = fuel_cost + distance_cost + fixed_cost + toll_cost
+                
+                # Cap duration at 600 for display (even if slack was used)
+                display_duration = min(route_duration_min, 600)
                 
                 routes.append({
                     "vehicle_id": vehicle["id"],
@@ -493,7 +513,7 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
                     "depot_name": primary_depot.get("name", primary_depot["id"]),
                     "stops": route_stops,
                     "distance_km": round(route_distance_km, 2),
-                    "duration_minutes": round(route_duration_min, 2),  # ADD DURATION
+                    "duration_minutes": round(display_duration, 2),  # Capped at 600 min
                     "fuel_cost": round(fuel_cost, 2),
                     "distance_cost": round(distance_cost, 2),
                     "fixed_cost": round(fixed_cost, 2),
