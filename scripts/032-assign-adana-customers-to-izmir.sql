@@ -77,8 +77,7 @@ SELECT 'Izmir Depot Capacity:' as info,
        d.city,
        COUNT(DISTINCT c.id) as total_customers,
        COUNT(DISTINCT v.id) as total_vehicles,
-       d.capacity_pallets,
-       SUM(c.demand_pallets) as total_demand_pallets
+       d.capacity_pallets
 FROM depots d
 LEFT JOIN customers c ON c.assigned_depot_id = d.id
 LEFT JOIN vehicles v ON v.depot_id = d.id
