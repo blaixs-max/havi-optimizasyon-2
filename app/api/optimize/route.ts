@@ -525,6 +525,11 @@ async function optimizeWithRailway(
     if (!railwayResponse.ok) {
       const errorText = await railwayResponse.text()
       console.error("[v0] Railway API error:", errorText)
+      
+      if (railwayResponse.status === 502) {
+        throw new Error(`Railway OR-Tools servisi yanıt vermiyor (502). Lütfen Railway dashboard'unuzda servisin çalıştığından emin olun veya VROOM algoritmasını kullanın.`)
+      }
+      
       throw new Error(`Railway API error (${railwayResponse.status}): ${errorText}`)
     }
 
