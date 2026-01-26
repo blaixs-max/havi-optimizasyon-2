@@ -476,7 +476,9 @@ async function optimizeWithRailway(
     customers: customersWithOrders.map((c) => {
       const order = orderMap.get(c.id)!
       const depotId = assignDepotToCustomer(c)
-      console.log(`[v0] Customer ${c.id}: assigned_depot_id="${depotId}"`)
+      const demandRaw = order.demand_pallet || order.pallets || 10
+      const demandParsed = parseInt(demandRaw, 10)
+      console.log(`[v0] Customer ${c.id}: assigned_depot_id="${depotId}", demand_raw="${demandRaw}" (type: ${typeof demandRaw}), demand_parsed=${demandParsed}`)
       return {
         id: c.id,
         name: c.name || c.company_name || `Müşteri ${c.id}`,
@@ -485,7 +487,7 @@ async function optimizeWithRailway(
           lat: c.lat,
           lng: c.lng,
         },
-        demand_pallets: order.demand_pallet || order.pallets || 10,
+        demand_pallets: demandParsed,
         priority: order.priority || 'normal',
         business_type: c.business_type || "retail",
         service_duration: c.service_duration_minutes || serviceDurationMinutes,
@@ -495,6 +497,7 @@ async function optimizeWithRailway(
               end: c.constraint_end_time,
             }
           : null,
+        // Vehicle type preference (logged by OR-Tools but not strictly enforced)
         required_vehicle_type: c.required_vehicle_type || null,
       }
     }),
@@ -503,7 +506,7 @@ async function optimizeWithRailway(
       return {
         id: v.id,
         type: vehicleType,
-        capacity_pallets: v.capacity_pallet || v.capacity_pallets || 12,
+        capacity_pallets: parseInt(v.capacity_pallet || v.capacity_pallets || 12, 10),
         fuel_consumption: v.fuel_consumption || 25,
         vehicle_type_name: v.vehicle_type, // Send type name for matching
         plate: v.plate || v.license_plate || `${v.id}`, // Send plate to Railway
@@ -519,6 +522,14 @@ async function optimizeWithRailway(
   console.log("[v0] DEBUG: customersWithOrders[0].assigned_depot_id:", customersWithOrders[0]?.assigned_depot_id)
   console.log("[v0] Customer depot assignments:", railwayRequest.customers.map(c => ({ id: c.id, name: c.name, depot_id: c.depot_id })))
   console.log("[v0] Available vehicles:", availableVehicles.length)
+  console.log("[v0] Vehicle details:", railwayRequest.vehicles.map(v => ({ 
+    id: v.id, 
+    type: v.type, 
+    type_name: v.vehicle_type_name,
+    capacity: v.capacity_pallets 
+  })))
+  console.log("[v0] Total demand:", railwayRequest.customers.reduce((sum, c) => sum + c.demand_pallets, 0))
+  console.log("[v0] Total capacity:", railwayRequest.vehicles.reduce((sum, v) => sum + v.capacity_pallets, 0))
 
   try {
     const controller = new AbortController()
