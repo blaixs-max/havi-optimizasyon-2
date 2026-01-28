@@ -506,7 +506,7 @@ export function OptimizationPanel() {
                     value={[maxRouteDuration]}
                     onValueChange={([v]) => setMaxRouteDuration(v)}
                     min={60}
-                    max={720}
+                    max={1200}
                     step={30}
                     className="flex-1"
                   />
