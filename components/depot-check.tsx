@@ -16,12 +16,20 @@ export function DepotCheck({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
   useEffect(() => {
+    // Clean up ALL old storage keys on mount (one-time cleanup)
+    if (typeof window !== 'undefined') {
+      const oldKeys = ['depot-selection', 'depot-selection-v2']
+      oldKeys.forEach(key => {
+        if (localStorage.getItem(key)) {
+          console.log(`[v0] Removing old storage key: ${key}`)
+          localStorage.removeItem(key)
+        }
+      })
+    }
+
     // FORCE FIX: If depot-3 is selected, force change to depot-2 (Ankara Depo)
     if (selectedDepotId === 'depot-3' && typeof window !== 'undefined') {
       console.log("[v0] 🔧 FORCE FIX: depot-3 detected, switching to depot-2 (Ankara Depo)")
-      // Clear ALL old storage keys
-      localStorage.removeItem('depot-selection')
-      localStorage.removeItem('depot-selection-v2')
       // Force set depot-2
       setSelectedDepot('depot-2')
       console.log("[v0] ✅ Forced depot selection to depot-2")
