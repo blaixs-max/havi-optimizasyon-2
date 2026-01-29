@@ -24,6 +24,14 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Route,
   Truck,
   Clock,
@@ -213,6 +221,8 @@ export default function MapPage() {
   }
 
   const { showToast } = useToast()
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [routeToDelete, setRouteToDelete] = useState<string | null>(null)
 
   const handleStatusChange = async (routeId: string, newStatus: RouteStatus) => {
     try {
@@ -305,15 +315,18 @@ export default function MapPage() {
     }
   }
 
-  const handleDeleteRoute = async (routeId: string) => {
-    if (!confirm("Bu rotayı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) {
-      return
-    }
+  const handleDeleteRoute = (routeId: string) => {
+    setRouteToDelete(routeId)
+    setDeleteConfirmOpen(true)
+  }
+
+  const confirmDeleteRoute = async () => {
+    if (!routeToDelete) return
 
     try {
-      console.log("[v0] Deleting route:", routeId)
+      console.log("[v0] Deleting route:", routeToDelete)
 
-      const response = await fetch(`/api/routes?id=${routeId}`, {
+      const response = await fetch(`/api/routes?id=${routeToDelete}`, {
         method: "DELETE",
       })
 
@@ -324,10 +337,10 @@ export default function MapPage() {
       console.log("[v0] Route deleted successfully")
 
       // Remove from local state
-      setRoutes((prev) => prev.filter((r) => r.id !== routeId))
+      setRoutes((prev) => prev.filter((r) => r.id !== routeToDelete))
 
       // Clear selection if deleted route was selected
-      if (selectedRoute?.id === routeId) {
+      if (selectedRoute?.id === routeToDelete) {
         setSelectedRoute(null)
       }
 
@@ -338,6 +351,9 @@ export default function MapPage() {
     } catch (error) {
       console.error("[v0] Failed to delete route:", error)
       showToast("error", "Silme Başarısız", "Rota silinemedi")
+    } finally {
+      setDeleteConfirmOpen(false)
+      setRouteToDelete(null)
     }
   }
 
@@ -802,5 +818,26 @@ export default function MapPage() {
         </div>
       </Suspense>
     </DashboardLayout>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rotayı Sil</DialogTitle>
+            <DialogDescription>
+              Bu rotayı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve rotaya ait tüm veriler kalıcı
+              olarak silinecektir.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+              İptal
+            </Button>
+            <Button variant="destructive" onClick={confirmDeleteRoute}>
+              Sil
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
   )
 }
