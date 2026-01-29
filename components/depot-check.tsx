@@ -20,9 +20,16 @@ export function DepotCheck({ children }: { children: React.ReactNode }) {
       if (selectedDepotId) {
         const isValidDepot = depots.some(d => d.id === selectedDepotId)
         if (!isValidDepot) {
-          console.log("[v0] Invalid depot ID detected (old format), clearing:", selectedDepotId)
+          console.log("[v0] ⚠️ INVALID DEPOT ID - Old hardcoded format detected")
+          console.log("[v0] Stored depot ID:", selectedDepotId)
+          console.log("[v0] Valid depot IDs:", depots.map(d => d.id))
+          console.log("[v0] Clearing invalid depot and redirecting to selection...")
           clearSelectedDepot()
-          // Will redirect to select-depot on next render
+          // Clear localStorage manually to ensure it's reset
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('depot-selection')
+          }
+          router.push("/select-depot")
           return
         }
       }
@@ -30,6 +37,7 @@ export function DepotCheck({ children }: { children: React.ReactNode }) {
     
     // If no depot selected and not already on select-depot page, redirect
     if (!selectedDepotId && pathname !== "/select-depot" && depots && depots.length > 0) {
+      console.log("[v0] No depot selected, redirecting to selection page...")
       router.push("/select-depot")
     }
   }, [selectedDepotId, depots, pathname, router, clearSelectedDepot])
