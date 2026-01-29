@@ -345,8 +345,11 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
                 from_node = manager.IndexToNode(from_index)
                 to_node = manager.IndexToNode(to_index)
                 
-                # Travel time (distance in meters / 60 km/h = minutes)
-                travel_time_minutes = (distance_matrix[from_node][to_node] / 1000) / 60 * 60
+                # Travel time: distance in meters, average speed 60 km/h
+                # Formula: (distance_km / speed_kmh) * 60 minutes = travel time in minutes
+                distance_km = distance_matrix[from_node][to_node] / 1000.0
+                average_speed_kmh = 60.0
+                travel_time_minutes = (distance_km / average_speed_kmh) * 60.0
                 
                 # Service time at destination (0 for depot)
                 if to_node == 0:
@@ -499,7 +502,8 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
                     route_duration_min = solution.Min(time_dimension.CumulVar(end_index))
                 else:
                     # Fallback: estimate duration from distance (60 km/h average)
-                    route_duration_min = int((route_distance_km / 60) * 60)
+                    # Formula: (distance_km / speed_kmh) * 60 = minutes
+                    route_duration_min = int((route_distance_km / 60.0) * 60.0)
                     # Add service times for all stops
                     for stop in route_stops:
                         route_duration_min += stop.get("service_duration", 30)
@@ -692,8 +696,11 @@ def _optimize_multi_depot(depots: list, customers: list, vehicles: list, fuel_pr
                 from_node = manager.IndexToNode(from_index)
                 to_node = manager.IndexToNode(to_index)
                 
-                # Travel time (distance in meters / 60 km/h = minutes)
-                travel_time_minutes = (distance_matrix[from_node][to_node] / 1000) / 60 * 60
+                # Travel time: distance in meters, average speed 60 km/h
+                # Formula: (distance_km / speed_kmh) * 60 minutes = travel time in minutes
+                distance_km = distance_matrix[from_node][to_node] / 1000.0
+                average_speed_kmh = 60.0
+                travel_time_minutes = (distance_km / average_speed_kmh) * 60.0
                 
                 # Service time at destination
                 service_time_minutes = SERVICE_TIMES.get(customers[to_node - len(depots)].get("business_type", "default"), SERVICE_TIMES["default"]) if to_node >= len(depots) else 0
@@ -834,7 +841,8 @@ def _optimize_multi_depot(depots: list, customers: list, vehicles: list, fuel_pr
                 vehicle = vehicles[vehicle_id]
                 fuel_consumption = VEHICLE_TYPES[vehicle["type"]]["fuel"]
                 
-                route_duration_minutes = (route_distance_km / 60) * 60
+                # Calculate route duration: (distance_km / speed_kmh) * 60 = minutes
+                route_duration_minutes = (route_distance_km / 60.0) * 60.0
                 route_duration_minutes += sum(s["service_time"] for s in route_stops)
                 
                 fuel_cost = (route_distance_km / 100) * fuel_consumption * fuel_price
