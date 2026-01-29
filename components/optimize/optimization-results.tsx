@@ -390,16 +390,16 @@ export function OptimizationResults({ result, depots = [] }: OptimizationResults
         <CardContent className="p-0">
           <Tabs value={viewMode} onValueChange={(val) => setViewMode(val as "list" | "map")}>
             <div className="px-4 border-b">
-              <TabsList className="h-9">
-                <TabsTrigger value="list" className="text-xs gap-1">
-                  <List className="h-3 w-3" />
-                  Liste
-                </TabsTrigger>
-                <TabsTrigger value="map" className="text-xs gap-1">
-                  <Map className="h-3 w-3" />
-                  Harita
-                </TabsTrigger>
-              </TabsList>
+                <TabsList className="h-9">
+                  <TabsTrigger value="list" className="text-xs gap-1">
+                    <List className="h-3 w-3" />
+                    Liste
+                  </TabsTrigger>
+                  <TabsTrigger value="map" className="text-xs gap-1" disabled>
+                    <Map className="h-3 w-3" />
+                    Harita
+                  </TabsTrigger>
+                </TabsList>
             </div>
 
             <TabsContent value="list" className="m-0">
