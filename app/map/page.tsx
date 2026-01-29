@@ -218,6 +218,10 @@ export default function MapPage() {
     try {
       console.log("[v0] Updating route status:", routeId, "to", newStatus)
       
+      // Find route before updating
+      const route = routes.find((r) => r.id === routeId)
+      console.log("[v0] Route found:", route?.id, "stops count:", route?.stops?.length)
+      
       // Update route status in database
       const response = await fetch("/api/routes", {
         method: "PATCH",
@@ -226,7 +230,9 @@ export default function MapPage() {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to update route status")
+        const errorText = await response.text()
+        console.error("[v0] Route status update failed:", response.status, errorText)
+        throw new Error(`Failed to update route status: ${errorText}`)
       }
 
       const updatedRoute = await response.json()
@@ -237,6 +243,7 @@ export default function MapPage() {
 
       // Update orders status if route is approved/in_progress/completed
       if (["approved", "in_progress", "completed"].includes(newStatus)) {
+        console.log("[v0] Updating orders for route status:", newStatus)
         await updateOrdersStatus(routeId, newStatus)
       }
 
@@ -246,7 +253,7 @@ export default function MapPage() {
       showToast("success", "Rota Güncellendi", `Rota durumu "${getStatusText(newStatus)}" olarak değiştirildi`)
     } catch (error) {
       console.error("[v0] Failed to update route status:", error)
-      showToast("error", "Güncelleme Başarısız", "Rota durumu güncellenemedi")
+      showToast("error", "Güncelleme Başarısız", error instanceof Error ? error.message : "Rota durumu güncellenemedi")
     }
   }
 
@@ -257,13 +264,22 @@ export default function MapPage() {
 
       // Get route stops to find order IDs
       const route = routes.find((r) => r.id === routeId)
-      if (!route || !route.stops) return
+      console.log("[v0] updateOrdersStatus - route found:", !!route, "stops:", route?.stops?.length)
+      
+      if (!route || !route.stops) {
+        console.log("[v0] updateOrdersStatus - no route or stops found")
+        return
+      }
+
+      // Debug: check first few stops structure
+      console.log("[v0] updateOrdersStatus - first stop sample:", JSON.stringify(route.stops[0]))
 
       // Extract order IDs from stops
       const orderIds = route.stops.map((stop: any) => stop.orderId).filter(Boolean)
 
       if (orderIds.length === 0) {
         console.log("[v0] No order IDs found in route stops:", routeId)
+        console.log("[v0] Stops structure:", route.stops.map(s => ({ customerId: s.customerId, orderId: s.orderId })))
         return
       }
 
@@ -279,7 +295,8 @@ export default function MapPage() {
       if (response.ok) {
         console.log("[v0] Orders status updated for route:", routeId)
       } else {
-        console.error("[v0] Order status update failed:", await response.text())
+        const errorText = await response.text()
+        console.error("[v0] Order status update failed:", response.status, errorText)
       }
     } catch (error) {
       console.error("[v0] Failed to update orders status:", error)
