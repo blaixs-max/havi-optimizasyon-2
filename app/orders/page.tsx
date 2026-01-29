@@ -78,7 +78,7 @@ export default function OrdersPage() {
     priority: 3,
     order_date: o.order_date,
     delivery_date: o.delivery_date,
-    status: o.status,
+    status: o.status || "pending", // Default to pending if status is missing
     notes: o.notes,
   }))
 
