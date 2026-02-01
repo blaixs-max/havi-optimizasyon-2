@@ -373,11 +373,13 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
         time_callback_index = routing.RegisterTransitCallback(time_callback)
         
         # Time dimension: max 1440 minutes per route (24 hours)
+        # fix_start_cumul_to_zero=False allows vehicles to wait for time windows
+        # (Required for VRPTW - see https://developers.google.com/optimization/routing/dimensions)
         routing.AddDimension(
             time_callback_index,
-            120,  # slack: 120 minutes (2 hours)
+            120,  # slack: 120 minutes (2 hours) - allows waiting at locations
             1440,  # max: 1440 minutes (24 hours) per vehicle
-            True,  # start cumul to zero
+            False,  # FIXED: Was True, but VRPTW requires False to handle time windows properly
             'Time'
         )
         
@@ -391,24 +393,26 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
         
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
         
-        # Use PATH_CHEAPEST_ARC - fastest initial solution strategy
+        # Use PARALLEL_CHEAPEST_INSERTION - better for multi-depot and complex constraints
+        # (PATH_CHEAPEST_ARC is faster but less effective for complex problems)
         search_parameters.first_solution_strategy = (
-            routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+            routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
         )
-        
-        # Use AUTOMATIC for local search - OR-Tools chooses best strategy
+
+        # Use GUIDED_LOCAL_SEARCH - recommended as most efficient for VRP
+        # (see https://developers.google.com/optimization/routing/routing_options)
         search_parameters.local_search_metaheuristic = (
-            routing_enums_pb2.LocalSearchMetaheuristic.AUTOMATIC
+            routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
         )
-        
-        # Increase timeout to 5 minutes for complex problems
-        search_parameters.time_limit.seconds = 300
+
+        # Timeout for optimization - allows local search to improve solution
+        search_parameters.time_limit.seconds = 120  # 2 minutes for optimization
         search_parameters.log_search = True
-        
-        # Accept first feasible solution quickly
-        search_parameters.solution_limit = 1
-        
-        print(f"[OR-Tools] Solving with PATH_CHEAPEST_ARC + AUTOMATIC metaheuristic (300s limit)...")
+
+        # REMOVED: solution_limit = 1 was killing optimization!
+        # Let the solver use the full time_limit to find better solutions
+
+        print(f"[OR-Tools] Solving with PARALLEL_CHEAPEST_INSERTION + GUIDED_LOCAL_SEARCH (120s limit)...")
         print(f"[OR-Tools] About to call SolveWithParameters()...")
         
         solution = routing.SolveWithParameters(search_parameters)
@@ -515,16 +519,12 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
                         route_duration_min += stop.get("service_duration", 30)
                     print(f"[OR-Tools] WARNING: Using fallback duration calculation for vehicle {vehicle_id}: {route_duration_min} min")
                 
-                # Validate duration against 1440-minute target (1560 max with slack)
+                # Log if route uses slack time (duration > 1440 minutes)
                 if route_duration_min > 1440:
                     print(f"[OR-Tools] INFO: Route for vehicle {vehicle_id} uses slack time")
-                    print(f"[OR-Tools]   Duration: {route_duration_min} min (target: 1440, max: 1560)")
+                    print(f"[OR-Tools]   Duration: {route_duration_min} min (max: 1440 + 120 slack)")
                     print(f"[OR-Tools]   Distance: {route_distance_km:.2f} km")
                     print(f"[OR-Tools]   Stops: {len(route_stops)}")
-                    
-                    # If over 660, this should not happen due to hard constraint
-                    if route_duration_min > 660:
-                        print(f"[OR-Tools] ERROR: Route exceeds maximum allowed time of 660 minutes!")
                 
                 fuel_cost = (route_distance_km / 100) * fuel_consumption * fuel_price
                 distance_cost = route_distance_km * 2.5
@@ -723,16 +723,17 @@ def _optimize_multi_depot(depots: list, customers: list, vehicles: list, fuel_pr
         time_callback_index = routing.RegisterTransitCallback(time_callback)
         
         # Time dimension: max 1440 minutes per route (24 hours total including breaks)
+        # fix_start_cumul_to_zero=False allows vehicles to wait for time windows
         routing.AddDimension(
             time_callback_index,
             120,  # slack: 120 minutes (2 hours)
             1440,  # Max 1440 minutes (24 hours) per vehicle
-            True,  # Start cumul to zero
+            False,  # FIXED: Was True, but VRPTW requires False
             'Time'
         )
-        time_dimension = routing.GetDimensionOrDie('Time')
-        
-        print(f"[OR-Tools] Time dimension added (max 10h per route, breaks included in route time)")
+        routing.GetDimensionOrDie('Time')  # Verify dimension exists
+
+        print(f"[OR-Tools] Time dimension added (max 24h per route, 2h slack)")
         
         # Add time window constraints
         # for location_idx, time_window in enumerate(time_windows):
