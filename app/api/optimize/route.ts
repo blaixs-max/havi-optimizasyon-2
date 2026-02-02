@@ -584,7 +584,7 @@ async function optimizeWithRailway(
       }
       
       if (railwayResponse.status === 404) {
-        throw new Error(`Railway API endpoint bulunamadı (404). RAILWAY_API_URL doğru mu? ${railwayUrl}/optimize`)
+        throw new Error(`Railway API endpoint bulunamadı (404). RAILWAY_API_URL doğru mu? ${railwayUrl}/optimize (URL: ${process.env.RAILWAY_API_URL})`)
       }
       
       throw new Error(`Railway API hatası (${railwayResponse.status}): ${errorText}`)
