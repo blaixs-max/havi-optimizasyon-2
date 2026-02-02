@@ -626,8 +626,16 @@ async function optimizeWithRailway(
     const depotMap = new Map(depots.map((d) => [d.id, d]))
 
     const formattedRoutes = railwayResult.routes.map((route: any, index: number) => {
-      // Generate unique route ID: route-{timestamp}-{vehicleId}
+      // Find the real vehicle ID from our database by matching vehicle_id from Railway
+      // Railway returns vehicle_id which is the database UUID we sent
       const vehicleId = route.vehicle_id || `vehicle-${index}`
+      const vehicle = vehicleMap.get(vehicleId)
+      
+      if (!vehicle) {
+        console.warn(`[v0] WARNING: Vehicle ${vehicleId} not found in vehicleMap, using Railway ID`)
+      }
+      
+      // Generate unique route ID: route-{timestamp}-{vehicleId}
       const routeId = `route-${Date.now()}-${vehicleId}`
       
       // Validate duration - should not exceed 1200 minutes (20 hours)
