@@ -8,65 +8,69 @@
 -- 4. Sonuç: 23 sipariş + 9 araç ile optimizasyon hazır
 -- ========================================
 
--- ADIM 1: ADANA DEPO OLUŞTUR
+-- ADIM 1: ADANA DEPO OLUŞTUR VE ARAÇLARI EKLE
 -- Koordinat: 36.9932508, 35.3256885
 -- Adres: Adana Büyükşehir Belediyesi, Reşatbey, Atatürk cad. No:1, 01120 Seyhan/Adana
 
-INSERT INTO depots (name, city, address, lat, lng, capacity_pallets, status)
-VALUES (
-  'Adana Merkez Depo',
-  'Adana',
-  'Adana Büyükşehir Belediyesi, Reşatbey, Atatürk cad. No:1, 01120 Seyhan/Adana',
-  36.9932508,
-  35.3256885,
-  1200,
-  'active'
-)
-ON CONFLICT DO NOTHING;
-
--- Depo ID'sini al (sonraki adımlarda kullanmak için)
 DO $$
 DECLARE
-  v_depot_id TEXT;
+  v_depot_id UUID;
+  v_existing_count INTEGER;
 BEGIN
-  -- Adana Depo ID'sini bul
-  SELECT id INTO v_depot_id FROM depots WHERE city = 'Adana' AND name = 'Adana Merkez Depo';
+  -- Önce var mı kontrol et
+  SELECT COUNT(*) INTO v_existing_count FROM depots WHERE city = 'Adana' AND name = 'Adana Merkez Depo';
   
-  IF v_depot_id IS NULL THEN
-    RAISE EXCEPTION 'Adana Depo oluşturulamadı!';
+  IF v_existing_count > 0 THEN
+    -- Varsa ID'sini al
+    SELECT id INTO v_depot_id FROM depots WHERE city = 'Adana' AND name = 'Adana Merkez Depo';
+    RAISE NOTICE 'Adana Depo zaten mevcut, ID: %', v_depot_id;
+  ELSE
+    -- Yoksa oluştur (manuel UUID ile)
+    v_depot_id := gen_random_uuid();
+    INSERT INTO depots (id, name, city, address, lat, lng, capacity_pallets, status)
+    VALUES (
+      v_depot_id,
+      'Adana Merkez Depo',
+      'Adana',
+      'Adana Büyükşehir Belediyesi, Reşatbey, Atatürk cad. No:1, 01120 Seyhan/Adana',
+      36.9932508,
+      35.3256885,
+      1200,
+      'active'
+    );
+    
+    RAISE NOTICE 'Adana Depo oluşturuldu, ID: %', v_depot_id;
   END IF;
-
-  RAISE NOTICE 'Adana Depo ID: %', v_depot_id;
 
   -- ADIM 2: TIR ARAÇLARI OLUŞTUR (4 adet)
   -- Kapasite: 32 palet, 25,000 kg
-  INSERT INTO vehicles (depot_id, plate, vehicle_type, capacity_pallets, capacity_kg, fuel_consumption_per_100km, cost_per_km, status)
+  INSERT INTO vehicles (id, depot_id, plate, vehicle_type, capacity_pallets, capacity_kg, fuel_consumption_per_100km, cost_per_km, status)
   VALUES
-    (v_depot_id, '01 MNO 101', 'tir', 32, 25000, 35.0, 8.50, 'available'),
-    (v_depot_id, '01 MNO 102', 'tir', 32, 25000, 35.0, 8.50, 'available'),
-    (v_depot_id, '01 MNO 103', 'tir', 32, 25000, 35.0, 8.50, 'available'),
-    (v_depot_id, '01 MNO 104', 'tir', 32, 25000, 35.0, 8.50, 'available')
+    (gen_random_uuid(), v_depot_id, '01 MNO 101', 'tir', 32, 25000, 35.0, 8.50, 'available'),
+    (gen_random_uuid(), v_depot_id, '01 MNO 102', 'tir', 32, 25000, 35.0, 8.50, 'available'),
+    (gen_random_uuid(), v_depot_id, '01 MNO 103', 'tir', 32, 25000, 35.0, 8.50, 'available'),
+    (gen_random_uuid(), v_depot_id, '01 MNO 104', 'tir', 32, 25000, 35.0, 8.50, 'available')
   ON CONFLICT (plate) DO NOTHING;
 
   RAISE NOTICE '4 TIR aracı oluşturuldu (128 palet kapasitesi)';
 
   -- ADIM 3: KAMYON-2 ARACI OLUŞTUR (1 adet)
   -- Kapasite: 18 palet, 10,000 kg (Orta boy kamyon)
-  INSERT INTO vehicles (depot_id, plate, vehicle_type, capacity_pallets, capacity_kg, fuel_consumption_per_100km, cost_per_km, status)
+  INSERT INTO vehicles (id, depot_id, plate, vehicle_type, capacity_pallets, capacity_kg, fuel_consumption_per_100km, cost_per_km, status)
   VALUES
-    (v_depot_id, '01 PQR 201', 'kamyon', 18, 10000, 25.0, 6.00, 'available')
+    (gen_random_uuid(), v_depot_id, '01 PQR 201', 'kamyon', 18, 10000, 25.0, 6.00, 'available')
   ON CONFLICT (plate) DO NOTHING;
 
   RAISE NOTICE '1 Kamyon-2 aracı oluşturuldu (18 palet kapasitesi)';
 
   -- ADIM 4: KAMYON ARAÇLARI OLUŞTUR (4 adet)
   -- Kapasite: 12 palet, 8,000 kg
-  INSERT INTO vehicles (depot_id, plate, vehicle_type, capacity_pallets, capacity_kg, fuel_consumption_per_100km, cost_per_km, status)
+  INSERT INTO vehicles (id, depot_id, plate, vehicle_type, capacity_pallets, capacity_kg, fuel_consumption_per_100km, cost_per_km, status)
   VALUES
-    (v_depot_id, '01 VRP 001', 'kamyon', 12, 8000, 18.0, 2.20, 'available'),
-    (v_depot_id, '01 VRP 002', 'kamyon', 12, 8000, 18.0, 2.20, 'available'),
-    (v_depot_id, '01 VRP 003', 'kamyon', 12, 8000, 18.0, 2.20, 'available'),
-    (v_depot_id, '01 VRP 004', 'kamyon', 12, 8000, 18.0, 2.20, 'available')
+    (gen_random_uuid(), v_depot_id, '01 VRP 001', 'kamyon', 12, 8000, 18.0, 2.20, 'available'),
+    (gen_random_uuid(), v_depot_id, '01 VRP 002', 'kamyon', 12, 8000, 18.0, 2.20, 'available'),
+    (gen_random_uuid(), v_depot_id, '01 VRP 003', 'kamyon', 12, 8000, 18.0, 2.20, 'available'),
+    (gen_random_uuid(), v_depot_id, '01 VRP 004', 'kamyon', 12, 8000, 18.0, 2.20, 'available')
   ON CONFLICT (plate) DO NOTHING;
 
   RAISE NOTICE '4 Kamyon aracı oluşturuldu (48 palet kapasitesi)';
@@ -117,7 +121,7 @@ GROUP BY d.name;
 SELECT 
   'SİPARİŞ KONTROLÜ' as kontrol,
   COUNT(*) as bekleyen_siparis,
-  SUM(pallet_count) as toplam_palet
+  SUM(demand_pallet) as toplam_palet
 FROM orders o
 JOIN customers c ON o.customer_id = c.id
 JOIN depots d ON c.assigned_depot_id = d.id
