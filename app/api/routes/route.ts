@@ -196,13 +196,12 @@ export async function POST(request: Request) {
       
       const [savedRoute] = await sql`
         INSERT INTO routes (
-          id, vehicle_id, depot_id, route_date, status,
+          vehicle_id, depot_id, route_date, status,
           total_distance_km, total_duration_min, total_pallets,
           total_cost, fuel_cost, distance_cost, fixed_cost,
           toll_cost, toll_crossings_count, highway_usage_count,
           geometry, optimized_at
         ) VALUES (
-          ${route.id},
           ${route.vehicleId},
           ${route.depotId},
           ${route.routeDate || new Date().toISOString().split("T")[0]},
@@ -220,17 +219,6 @@ export async function POST(request: Request) {
           ${geometry},
           NOW()
         )
-        ON CONFLICT (id) DO UPDATE SET
-          total_distance_km = EXCLUDED.total_distance_km,
-          total_duration_min = EXCLUDED.total_duration_min,
-          total_pallets = EXCLUDED.total_pallets,
-          total_cost = EXCLUDED.total_cost,
-          fuel_cost = EXCLUDED.fuel_cost,
-          distance_cost = EXCLUDED.distance_cost,
-          fixed_cost = EXCLUDED.fixed_cost,
-          toll_cost = EXCLUDED.toll_cost,
-          geometry = EXCLUDED.geometry,
-          optimized_at = NOW()
         RETURNING id
       `
 
