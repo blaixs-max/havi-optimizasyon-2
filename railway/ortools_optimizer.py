@@ -414,11 +414,29 @@ def _optimize_single_depot(primary_depot: dict, all_depots: list, customers: lis
 
         print(f"[OR-Tools] Solving with PARALLEL_CHEAPEST_INSERTION + GUIDED_LOCAL_SEARCH (120s limit)...")
         print(f"[OR-Tools] About to call SolveWithParameters()...")
-        
+
         solution = routing.SolveWithParameters(search_parameters)
-        
+
         print(f"[OR-Tools] SolveWithParameters() returned, solution exists: {solution is not None}")
-        
+
+        # Log solver status
+        status = routing.status()
+        status_messages = {
+            0: "ROUTING_NOT_SOLVED",
+            1: "ROUTING_SUCCESS",
+            2: "ROUTING_SUCCESS (improvement possible)",
+            3: "ROUTING_FAIL",
+            4: "ROUTING_INVALID",
+            5: "ROUTING_FAIL_NO_SOLUTION_FOUND",
+            6: "ROUTING_OPTIMAL"
+        }
+        status_msg = status_messages.get(status, f"UNKNOWN({status})")
+        print(f"[OR-Tools] Solver Status: {status_msg}")
+
+        if solution:
+            objective = solution.ObjectiveValue()
+            print(f"[OR-Tools] ✓ Solution found! Objective value: {objective}")
+
         if not solution:
             status = routing.status()
             status_msg = {
@@ -608,21 +626,20 @@ def _optimize_multi_depot(depots: list, customers: list, vehicles: list, fuel_pr
         
         print(f"[OR-Tools] Valid locations: {num_locations}")
         print(f"[OR-Tools] Total demand: {sum(demands)} pallets")
-        
-        distance_matrix = []
-        for i, loc1 in enumerate(locations):
-            row = []
-            for j, loc2 in enumerate(locations):
-                if i == j:
-                    row.append(0)
-                else:
-                    dist = haversine_distance(loc1[0], loc1[1], loc2[0], loc2[1])
-                    if dist < 0 or dist > 20000:
-                        print(f"[OR-Tools] WARNING: Suspicious distance between {i} and {j}: {dist}km")
-                        dist = max(1, min(dist, 20000))
-                    row.append(int(dist * 1000))
-            distance_matrix.append(row)
-        
+
+        # Distance matrix - OSRM Table API ile gerçek yol mesafesi (single-depot ile tutarlı)
+        print(f"[OR-Tools] ===== MESAFE MATRİSİ HESAPLANIYOR =====")
+        osrm_url = os.environ.get('OSRM_URL', 'https://router.project-osrm.org')
+        distance_matrix = get_osrm_distance_matrix(locations, osrm_url)
+
+        # Sanity check
+        for i, row in enumerate(distance_matrix):
+            for j, dist in enumerate(row):
+                if dist < 0:
+                    distance_matrix[i][j] = 0
+                elif dist > 20000000:  # 20,000 km üzeri
+                    distance_matrix[i][j] = 20000000
+
         print(f"[OR-Tools] Distance matrix size: {len(distance_matrix)}x{len(distance_matrix[0])}")
         
         vehicle_capacities = []
@@ -705,19 +722,31 @@ def _optimize_multi_depot(depots: list, customers: list, vehicles: list, fuel_pr
             try:
                 from_node = manager.IndexToNode(from_index)
                 to_node = manager.IndexToNode(to_index)
-                
+
                 # Travel time: distance in meters, average speed 60 km/h
                 # Formula: (distance_km / speed_kmh) * 60 minutes = travel time in minutes
                 distance_km = distance_matrix[from_node][to_node] / 1000.0
                 average_speed_kmh = 60.0
                 travel_time_minutes = (distance_km / average_speed_kmh) * 60.0
-                
+
                 # Service time at destination
-                service_time_minutes = SERVICE_TIMES.get(customers[to_node - len(depots)].get("business_type", "default"), SERVICE_TIMES["default"]) if to_node >= len(depots) else 0
-                
+                if to_node < len(depots):
+                    # Destination is a depot - no service time
+                    service_time_minutes = 0
+                else:
+                    # Destination is a customer
+                    customer_index = to_node - len(depots)
+                    if customer_index < len(customers):
+                        customer = customers[customer_index]
+                        business_type = customer.get("business_type", "default")
+                        service_time_minutes = SERVICE_TIMES.get(business_type, SERVICE_TIMES["default"])
+                    else:
+                        print(f"[OR-Tools] WARNING: Invalid customer index {customer_index}")
+                        service_time_minutes = SERVICE_TIMES["default"]
+
                 return int(travel_time_minutes + service_time_minutes)
             except Exception as e:
-                print(f"[OR-Tools] ERROR in time_callback: {e}")
+                print(f"[OR-Tools] ERROR in time_callback: {e}, from={from_index}, to={to_index}")
                 return 999999
         
         time_callback_index = routing.RegisterTransitCallback(time_callback)
@@ -746,8 +775,10 @@ def _optimize_multi_depot(depots: list, customers: list, vehicles: list, fuel_pr
         print(f"[OR-Tools] Time window constraints DISABLED for testing - only using time dimension for route duration limit")
         
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+        # Use PARALLEL_CHEAPEST_INSERTION - better for multi-depot and complex constraints
+        # (Same strategy as single-depot for consistency)
         search_parameters.first_solution_strategy = (
-            routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC  # Faster initial solution
+            routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
         )
         search_parameters.local_search_metaheuristic = (
             routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH  # Better optimization
@@ -757,7 +788,25 @@ def _optimize_multi_depot(depots: list, customers: list, vehicles: list, fuel_pr
         
         print(f"[OR-Tools] Starting solver with 120s timeout and guided local search...")
         solution = routing.SolveWithParameters(search_parameters)
-        
+
+        # Log solver status
+        status = routing.status()
+        status_messages = {
+            0: "ROUTING_NOT_SOLVED",
+            1: "ROUTING_SUCCESS",
+            2: "ROUTING_SUCCESS (improvement possible)",
+            3: "ROUTING_FAIL",
+            4: "ROUTING_INVALID",
+            5: "ROUTING_FAIL_NO_SOLUTION_FOUND",
+            6: "ROUTING_OPTIMAL"
+        }
+        status_msg = status_messages.get(status, f"UNKNOWN({status})")
+        print(f"[OR-Tools] Solver Status: {status_msg}")
+
+        if solution:
+            objective = solution.ObjectiveValue()
+            print(f"[OR-Tools] ✓ Solution found! Objective value: {objective}")
+
         if not solution:
             status = routing.status()
             status_messages = {
