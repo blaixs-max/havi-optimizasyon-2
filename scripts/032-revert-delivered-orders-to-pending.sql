@@ -11,7 +11,7 @@ FROM orders
 GROUP BY status
 ORDER BY status;
 
--- Delivered siparişleri listele
+-- Completed siparişleri listele
 SELECT 
   'TESLİM EDİLMİŞ SİPARİŞLER' as rapor,
   o.id,
@@ -20,11 +20,11 @@ SELECT
   o.status
 FROM orders o
 JOIN customers c ON o.customer_id = c.id
-WHERE o.status = 'delivered'
+WHERE o.status = 'completed'
 ORDER BY o.created_at DESC
 LIMIT 5;
 
--- 5 delivered siparişi pending'e döndür
+-- 5 completed siparişi pending'e döndür
 UPDATE orders
 SET 
   status = 'pending',
@@ -32,7 +32,7 @@ SET
 WHERE id IN (
   SELECT id 
   FROM orders 
-  WHERE status = 'delivered'
+  WHERE status = 'completed'
   ORDER BY updated_at DESC
   LIMIT 5
 );
