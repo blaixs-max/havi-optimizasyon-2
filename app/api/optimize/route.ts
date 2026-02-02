@@ -5,7 +5,8 @@ import { decodePolyline } from "@/lib/polyline"
 import { calculateTollCosts } from "@/lib/toll-calculator"
 
 console.log("[v0] ORS_API_KEY exists:", !!process.env.ORS_API_KEY)
-console.log("[v0] RAILWAY_API_URL:", process.env.RAILWAY_API_URL)
+const cleanRailwayUrl = process.env.RAILWAY_API_URL?.replace(/\/$/, '') || ''
+console.log("[v0] RAILWAY_API_URL (cleaned):", cleanRailwayUrl)
 
 // Haversine mesafe hesaplama (fallback için)
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -416,7 +417,7 @@ async function optimizeWithRailway(
     throw new Error("RAILWAY_API_URL environment variable yapılandırılmamış. Lütfen Vercel'de RAILWAY_API_URL environment variable'ını ekleyin veya VROOM algoritmasını kullanın.")
   }
   
-  console.log("[v0] Railway API URL:", process.env.RAILWAY_API_URL)
+    // Railway URL logunu aşağıda düzeltilmiş haliyle yazdıracağız
 
   const availableVehicles = vehicles.filter((v) => v.status !== "maintenance" && v.status !== "inactive")
 
