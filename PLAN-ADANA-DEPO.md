@@ -9,28 +9,28 @@ Adana Depo'yu İzmir Depo gibi tam çalışır duruma getirmek ve optimizasyon b
 **Durum:** ❌ Yapılmadı
 
 ### Gereksinimler:
-- **Konum:** X8VG+67 Seyhan, Adana (Adana Büyükşehir Belediyesi)
+- **Konum:** Adana Büyükşehir Belediyesi
+- **Adres:** Reşatbey, Atatürk cad. No:1, 01120 Seyhan/Adana
 - **Koordinatlar:** 
-  - Plus Code: X8VG+67
-  - Tam koordinatları Google Maps'ten alınacak
-  - Yaklaşık: 37.0032°N, 35.3257°E (doğrulanmalı)
+  - Latitude: 36.9932508
+  - Longitude: 35.3256885
+  - ✅ ONAYLANDI (Plus Code: X8VG+67)
 
 ### SQL İşlemi:
 ```sql
-INSERT INTO depots (id, name, city, address, lat, lng, max_vehicles, is_active)
+INSERT INTO depots (name, city, address, lat, lng, capacity_pallets, status)
 VALUES (
-  'depot-3',
-  'Adana Depo',
+  'Adana Merkez Depo',
   'Adana',
-  'Adana Büyükşehir Belediyesi, Seyhan, Adana',
-  '37.0032',  -- DOĞRULANACAK
-  '35.3257',  -- DOĞRULANACAK
-  20,
-  true
+  'Adana Büyükşehir Belediyesi, Reşatbey, Atatürk cad. No:1, 01120 Seyhan/Adana',
+  36.9932508,
+  35.3256885,
+  1200,
+  'active'
 );
 ```
 
-**ONAY GEREKLİ:** Plus code'dan tam koordinatlara çevirelim mi?
+**HAZIR:** Koordinatlar onaylandı, SQL hazır.
 
 ---
 
@@ -58,19 +58,40 @@ VALUES (
 ## ADIM 3: ARAÇLARI ADANA DEPO İÇİN OLUŞTUR
 **Durum:** ❌ Yapılmadı
 
-### İzmir Depo (depot-1) Araç Profili İncelenecek:
-- Araç tipleri (kamyon_1, kamyon_2, vb.)
-- Her tipten kaç adet
-- Kapasite bilgileri
-- Çalışma saatleri
-- Maliyet parametreleri
+### İzmir Depo (depot-3) Araç Profili - GENİŞLETİLMİŞ FILO:
+✅ **Tespit Edildi:**
 
-### Gerekli İşlem:
-1. İzmir Depo araçlarını sorgula
-2. Aynı araç profilini Adana Depo için oluştur
-3. Tüm araçları `is_available = true` yap
+**Toplam: 9 Araç (206 palet kapasitesi)**
 
-**ONAY GEREKLİ:** İzmir Depo araçlarını önce inceleyip gösterelim mi?
+#### TIR Araçları (4 adet):
+- **Plaka:** 35 MNO 101, 102, 103, 104
+- **Kapasite:** 32 palet / 25,000 kg
+- **Yakıt Tüketimi:** 35.0 L/100km
+- **Maliyet:** 8.50 TL/km
+- **Durum:** available
+
+#### Kamyon-2 Araçları (1 adet):
+- **Plaka:** 35 PQR 201
+- **Kapasite:** 18 palet / 10,000 kg
+- **Yakıt Tüketimi:** 25.0 L/100km
+- **Maliyet:** 6.00 TL/km
+- **Durum:** available
+
+#### Kamyon (Standart - 4 adet, eski seed'den):
+- **Plaka:** 35 VRP 001-009
+- **Kapasite:** 12 palet / 8,000 kg
+- **Yakıt Tüketimi:** 18.0 L/100km
+- **Maliyet:** 2.20 TL/km
+- **Durum:** available
+
+### Adana Depo İçin Oluşturulacak Araçlar:
+Aynı profilde **9 araç** oluşturulacak:
+- 4 TIR (32 palet)
+- 1 Kamyon-2 (18 palet)
+- 4 Kamyon (12 palet)
+- **Toplam Kapasite:** 206 palet
+
+**HAZIR:** SQL scripti hazırlanacak.
 
 ---
 
@@ -110,12 +131,11 @@ WHERE assigned_depot_id = 'depot-2';
 
 ## ÖNCELİK SIRASI
 
-1. ✅ **Plus Code → Koordinat Dönüşümü** (X8VG+67 → Lat/Lng)
-2. ✅ **İzmir Depo Araç Profilini İncele**
-3. ⏳ **Adana Depo Oluştur** (SQL)
-4. ⏳ **Araçları Oluştur** (SQL)
-5. ⏳ **Müşterileri Taşı** (SQL)
-6. ⏳ **Test ve Doğrulama**
+1. ✅ **Plus Code → Koordinat Dönüşümü** (36.9932508, 35.3256885)
+2. ✅ **İzmir Depo Araç Profilini İncele** (9 araç: 4 TIR + 1 Kamyon-2 + 4 Kamyon)
+3. ⏳ **SQL Scripti Hazırla** (Adana Depo + Araçlar + Müşteri Güncellemesi)
+4. ⏳ **SQL Scriptini Çalıştır** (Onay sonrası)
+5. ⏳ **Test ve Doğrulama** (23 sipariş + 9 araç kontrolü)
 
 ---
 
