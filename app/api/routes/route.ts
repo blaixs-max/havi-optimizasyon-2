@@ -154,17 +154,18 @@ async function fetchRouteGeometry(depotLat: number, depotLng: number, stops: any
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    
-    // Validate request body
-    const validation = saveRoutesSchema.safeParse(body)
-    if (!validation.success) {
-      console.error("[v0] Validation failed:", validation.error.errors)
-      return NextResponse.json(
-        { error: "Invalid request data", details: validation.error.errors },
-        { status: 400 }
-      )
-    }
+  const body = await request.json()
+  console.log("[v0] Routes POST request body:", JSON.stringify(body, null, 2))
+  
+  // Validate request body
+  const validation = saveRoutesSchema.safeParse(body)
+  if (!validation.success) {
+  console.error("[v0] Validation failed:", JSON.stringify(validation.error.errors, null, 2))
+  return NextResponse.json(
+  { error: "Invalid request data", details: validation.error.errors },
+  { status: 400 }
+  )
+  }
 
     const { routes: routeData, optimization_id } = validation.data
 
@@ -281,7 +282,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, count: routeData.length })
   } catch (error) {
     console.error("[v0] Failed to save routes:", error)
-    return NextResponse.json({ error: "Failed to save routes" }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({ 
+      error: "Failed to save routes", 
+      details: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined
+    }, { status: 500 })
   }
 }
 

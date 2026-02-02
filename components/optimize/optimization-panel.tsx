@@ -324,7 +324,11 @@ export function OptimizationPanel() {
         }),
       })
 
-      if (!response.ok) throw new Error("Failed to save routes")
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("[v0] Save routes error response:", errorData)
+        throw new Error(errorData.details || errorData.error || "Failed to save routes")
+      }
 
       const resultData = await response.json()
       
