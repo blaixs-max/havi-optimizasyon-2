@@ -5,7 +5,8 @@ import { decodePolyline } from "@/lib/polyline"
 import { calculateTollCosts } from "@/lib/toll-calculator"
 
 console.log("[v0] ORS_API_KEY exists:", !!process.env.ORS_API_KEY)
-console.log("[v0] RAILWAY_API_URL:", process.env.RAILWAY_API_URL)
+const cleanRailwayUrl = process.env.RAILWAY_API_URL?.replace(/\/$/, '') || ''
+console.log("[v0] RAILWAY_API_URL (cleaned):", cleanRailwayUrl)
 
 // Haversine mesafe hesaplama (fallback için)
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -380,9 +381,12 @@ async function warmupRailway(): Promise<void> {
     return
   }
 
+  // Remove trailing slash from URL
+  const railwayUrl = process.env.RAILWAY_API_URL.replace(/\/$/, '')
+
   try {
-    console.log("[v0] Warming up Railway at:", process.env.RAILWAY_API_URL)
-    const response = await fetch(`${process.env.RAILWAY_API_URL}/health`, {
+    console.log("[v0] Warming up Railway at:", railwayUrl)
+    const response = await fetch(`${railwayUrl}/health`, {
       method: "GET",
       signal: AbortSignal.timeout(5000),
     })
@@ -413,7 +417,7 @@ async function optimizeWithRailway(
     throw new Error("RAILWAY_API_URL environment variable yapılandırılmamış. Lütfen Vercel'de RAILWAY_API_URL environment variable'ını ekleyin veya VROOM algoritmasını kullanın.")
   }
   
-  console.log("[v0] Railway API URL:", process.env.RAILWAY_API_URL)
+    // Railway URL logunu aşağıda düzeltilmiş haliyle yazdıracağız
 
   const availableVehicles = vehicles.filter((v) => v.status !== "maintenance" && v.status !== "inactive")
 
@@ -535,7 +539,10 @@ async function optimizeWithRailway(
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 330000) // 5.5 min timeout for Railway (300s + 30s buffer)
 
-    console.log("[v0] Calling Railway API:", process.env.RAILWAY_API_URL)
+    // Remove trailing slash from Railway URL
+    const railwayUrl = (process.env.RAILWAY_API_URL || '').replace(/\/$/, '')
+    
+    console.log("[v0] Calling Railway API:", railwayUrl)
     console.log("[v0] Request body sample:", {
       depotCount: railwayRequest.depots.length,
       customersCount: railwayRequest.customers.length,
@@ -554,7 +561,7 @@ async function optimizeWithRailway(
     
     console.log("[v0] OSRM URL being sent to Railway:", osrmUrl)
     
-    const railwayResponse = await fetch(`${process.env.RAILWAY_API_URL}/optimize`, {
+    const railwayResponse = await fetch(`${railwayUrl}/optimize`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -574,11 +581,11 @@ async function optimizeWithRailway(
       console.error("[v0] Railway response headers:", Object.fromEntries(railwayResponse.headers.entries()))
       
       if (railwayResponse.status === 502 || railwayResponse.status === 503) {
-        throw new Error(`Railway OR-Tools servisi yanıt vermiyor (${railwayResponse.status}). Olası nedenler:\n1. Railway servisi çalışmıyor olabilir - Railway dashboard'u kontrol edin\n2. RAILWAY_API_URL yanlış olabilir: ${process.env.RAILWAY_API_URL}\n3. Railway servisi cold start yaşıyor olabilir - birkaç saniye bekleyip tekrar deneyin\n\nAlternatif: VROOM algoritmasını kullanabilirsiniz.`)
+        throw new Error(`Railway OR-Tools servisi yanıt vermiyor (${railwayResponse.status}). Olası nedenler:\n1. Railway servisi çalışmıyor olabilir - Railway dashboard'u kontrol edin\n2. RAILWAY_API_URL yanlış olabilir: ${railwayUrl}\n3. Railway servisi cold start yaşıyor olabilir - birkaç saniye bekleyip tekrar deneyin\n\nAlternatif: VROOM algoritmasını kullanabilirsiniz.`)
       }
       
       if (railwayResponse.status === 404) {
-        throw new Error(`Railway API endpoint bulunamadı (404). RAILWAY_API_URL doğru mu? ${process.env.RAILWAY_API_URL}/optimize`)
+        throw new Error(`Railway API endpoint bulunamadı (404). RAILWAY_API_URL doğru mu? ${railwayUrl}/optimize (URL: ${process.env.RAILWAY_API_URL})`)
       }
       
       throw new Error(`Railway API hatası (${railwayResponse.status}): ${errorText}`)
