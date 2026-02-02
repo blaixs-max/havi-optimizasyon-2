@@ -51,10 +51,10 @@ BEGIN
   RAISE NOTICE '4 TIR aracı oluşturuldu (128 palet kapasitesi)';
 
   -- ADIM 3: KAMYON-2 ARACI OLUŞTUR (1 adet)
-  -- Kapasite: 18 palet, 10,000 kg
+  -- Kapasite: 18 palet, 10,000 kg (Orta boy kamyon)
   INSERT INTO vehicles (depot_id, plate, vehicle_type, capacity_pallets, capacity_kg, fuel_consumption_per_100km, cost_per_km, status)
   VALUES
-    (v_depot_id, '01 PQR 201', 'kamyon_2', 18, 10000, 25.0, 6.00, 'available')
+    (v_depot_id, '01 PQR 201', 'kamyon', 18, 10000, 25.0, 6.00, 'available')
   ON CONFLICT (plate) DO NOTHING;
 
   RAISE NOTICE '1 Kamyon-2 aracı oluşturuldu (18 palet kapasitesi)';
