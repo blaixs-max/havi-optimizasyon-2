@@ -196,12 +196,13 @@ export async function POST(request: Request) {
       
       const [savedRoute] = await sql`
         INSERT INTO routes (
-          vehicle_id, depot_id, route_date, status,
+          id, vehicle_id, depot_id, route_date, status,
           total_distance_km, total_duration_min, total_pallets,
           total_cost, fuel_cost, distance_cost, fixed_cost,
           toll_cost, toll_crossings_count, highway_usage_count,
           geometry, optimized_at
         ) VALUES (
+          gen_random_uuid(),
           ${route.vehicleId},
           ${route.depotId},
           ${route.routeDate || new Date().toISOString().split("T")[0]},
